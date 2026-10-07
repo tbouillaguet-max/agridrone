@@ -1,0 +1,24 @@
+# Configuration commune, héritée par toutes les expériences via `_base_`.
+# Chemins relatifs = relatifs à la racine du projet.
+project: agridrone
+task: base
+name: default
+
+seed: 42
+# true : algorithmes déterministes PyTorch (plus lent). À activer pour les runs
+# de référence qu'on veut pouvoir reproduire au bit près.
+deterministic: false
+device: auto          # auto (CUDA > MPS > CPU) | cpu | mps | cuda | cuda:N
+num_workers: 4
+
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  runs: runs
+
+tracking:
+  enabled: true
+  uri: sqlite:///mlflow.db
+  experiment: agridrone
+  artifact_root: mlartifacts

@@ -1,0 +1,45 @@
+# --- Python / outils ---
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- Données : jamais versionnées (voir data/README.md) ---
+data/raw/*
+data/interim/*
+data/processed/*
+!data/*/.gitkeep
+# Dossier par défaut d'Ultralytics s'il est utilisé par erreur
+datasets/
+
+# --- Runs, suivi d'expériences, poids ---
+runs/
+mlflow.db
+mlruns/
+mlartifacts/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.engine
+*.trt
+
+# --- Secrets (clés Kaggle / Roboflow) ---
+.env
+kaggle.json
+
+# --- Divers ---
+.DS_Store
+.idea/
+.vscode/
