@@ -11,6 +11,7 @@ from agridrone.eval.classification import (
     calibrate_decision_rule,
     confusion_matrix,
     expected_calibration_error,
+    healthy_auroc,
     plot_confusion,
     plot_risk_coverage,
     risk_coverage,
@@ -145,3 +146,11 @@ def test_plot_risk_coverage_writes_png(tmp_path: Path) -> None:
     assert path.stat().st_size > 1000
     with pytest.raises(ValueError):
         plot_risk_coverage({str(i): curves["a"] for i in range(9)}, tmp_path / "x.png", title="t")
+
+
+def test_healthy_auroc_ranks_independently_of_calibration() -> None:
+    # p(sain) très basse partout (modèle mal calibré) mais bien ordonnée : AUROC = 1.
+    probs = np.array([[0.02, 0.98], [0.01, 0.99], [0.001, 0.999], [0.0001, 0.9999]])
+    y = np.array([0, 0, 1, 1])
+    assert healthy_auroc(probs, y, 0) == pytest.approx(1.0)
+    assert healthy_auroc(probs, np.array([1, 1, 1, 1]), 0) is None

@@ -107,9 +107,9 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : 
 | 1 | Inventaire et vérification des données | — (livrables : [reports/data_inventory.md](reports/data_inventory.md), [reports/data_requests.md](reports/data_requests.md)) | fait |
 | 2 | Pipeline de données : téléchargement vérifié, conversion, découpage par groupes, tuilage, augmentations, exploration | `agridrone data list\|download\|verify\|prepare-classification\|prepare-segmentation` ; [notebook](notebooks/01_exploration_donnees.ipynb) ; [reports/data_pipeline.md](reports/data_pipeline.md) | fait |
 | 3 | Baseline YOLO11n/s pucerons (RVB, petits objets, SAHI) | — | **reporté** (pucerons mis de côté) |
-| 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny) | à venir | — |
-| 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu) | à venir | aucun jeu public pour le blé : chaîne validée sur WeedsGalore (inventaire, §7.2) |
-| 6 | Rapport des baselines, export ONNX, temps d'inférence | à venir | — |
+| 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny), sortie « incertain », tests inter-sources | `agridrone train -c configs/classification/<modèle>.yaml`, `agridrone evaluate --run <run>` | en cours |
+| 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu) | `agridrone train -c configs/segmentation/unet_5bandes.yaml` | aucun jeu public pour le blé : chaîne validée sur WeedsGalore (inventaire, §7.2) |
+| 6 | Rapport des baselines, export ONNX, temps d'inférence | `agridrone export --run <run>` | code prêt |
 
 Données, de bout en bout (détails dans [reports/data_pipeline.md](reports/data_pipeline.md)) :
 
@@ -121,7 +121,19 @@ uv run agridrone data prepare-segmentation          # data/processed/segmentatio
 ```
 
 L'extraction des archives RAR demande `unar` (`apt install unar` ou `brew install unar`).
-Les commandes des chantiers 4 à 6 seront ajoutées au fur et à mesure.
+Entraînement et évaluation (chantiers 4 et suivants) : la tâche est lue dans la config.
+
+```bash
+uv run agridrone train -c configs/classification/efficientnet_b0.yaml num_workers=2
+uv run agridrone train -c configs/classification/convnext_tiny.yaml num_workers=2
+uv run agridrone evaluate --run runs/classification/<run> eval.target_coverage=0.8
+```
+
+Chaque run écrit dans `runs/<tâche>/<date>_<nom>_<empreinte>/` : `best.pt` (checkpoint
+autoporteur, lisible avec `torch.load(weights_only=True)`, avec sa règle de décision),
+`history.csv` / `history.png`, `eval/metrics.json`, et par ensemble évalué les
+prédictions (CSV) et les matrices de confusion. Les mêmes éléments sont journalisés dans
+MLflow.
 
 ## Licences : points d'attention
 

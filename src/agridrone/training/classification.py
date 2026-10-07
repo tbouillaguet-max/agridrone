@@ -41,6 +41,7 @@ from agridrone.data.datasets import ClassificationDataset, classification_split
 from agridrone.eval.classification import (
     calibrate_decision_rule,
     expected_calibration_error,
+    healthy_auroc,
     plot_confusion,
     plot_risk_coverage,
     risk_coverage,
@@ -281,6 +282,7 @@ def run_evaluation(
             "argmax": summary_argmax,
             "decision": summary_decision,
             "ece": expected_calibration_error(probs, y),
+            "healthy_auroc": healthy_auroc(probs, y, healthy),
             "images_per_second": speed,
         }
         split_dir = out_dir / split
@@ -338,23 +340,33 @@ def _pct(value: float | None) -> str:
 
 
 def format_results(results: dict[str, Any]) -> str:
-    """Tableau texte : sans abstention, puis avec la règle de décision."""
+    """Tableau texte : sans abstention, puis avec la règle de décision.
+
+    Les ratés (malade déclaré sain) se lisent toujours avec les fausses alertes (sain
+    déclaré malade) : un modèle qui déclare tout malade n'a aucun raté.
+    """
     rule = results["decision_rule"]
     lines = [
         f"Règle de décision (calibrée sur {results['calibrated_on']}) : "
         f"tau = {rule['tau']:.3f}, tau_sain = {rule['tau_healthy']:.3f}",
-        f"{'ensemble':30s} {'n':>6s} │ {'exact.':>7s} {'F1 macro':>8s} {'ratés':>7s} │ "
-        f"{'couv.':>7s} {'exact.sél.':>10s} {'ratés':>7s} │ {'ECE':>5s}",
+        f"{'':37s} │ {'sans abstention':^32s} │ {'règle de décision':^33s} │",
+        f"{'ensemble':30s} {'n':>6s} │ {'exact.':>7s} {'F1':>6s} {'ratés':>8s} {'f.al.':>8s} │ "
+        f"{'couv.':>7s} {'ex.sél.':>7s} {'ratés':>8s} {'f.al.':>8s} │ {'ECE':>5s} {'AUROC':>5s}",
     ]
     for split, r in results["splits"].items():
         a, d = r["argmax"], r["decision"]
+        auroc = "—" if r.get("healthy_auroc") is None else f"{r['healthy_auroc']:5.3f}"
         lines.append(
-            f"{split:30s} {r['n']:6d} │ {_pct(a['accuracy']):>7s} {a['macro_f1']:8.3f} "
-            f"{_pct(a['binary']['disease_missed']):>7s} │ {_pct(d['coverage']):>7s} "
-            f"{_pct(d['selective_accuracy']):>10s} {_pct(d['binary']['disease_missed']):>7s} │ "
-            f"{r['ece']:5.3f}"
+            f"{split:30s} {r['n']:6d} │ {_pct(a['accuracy']):>7s} {a['macro_f1']:6.3f} "
+            f"{_pct(a['binary']['disease_missed']):>8s} "
+            f"{_pct(a['binary']['healthy_false_alarm']):>8s} │ {_pct(d['coverage']):>7s} "
+            f"{_pct(d['selective_accuracy']):>7s} {_pct(d['binary']['disease_missed']):>8s} "
+            f"{_pct(d['binary']['healthy_false_alarm']):>8s} │ {r['ece']:5.3f} {auroc}"
         )
-    lines.append("ratés = images malades déclarées saines ; couv. = part des images décidées")
+    lines.append(
+        "ratés = images malades déclarées saines ; f.al. = images saines déclarées malades ; "
+        "couv. = part des images décidées ; AUROC = séparation sain / malade par p(sain)"
+    )
     return "\n".join(lines)
 
 
@@ -373,9 +385,12 @@ def _flat_metrics(results: dict[str, Any]) -> dict[str, float]:
                 "selective_accuracy": m["selective_accuracy"],
                 "disease_missed": m["binary"]["disease_missed"],
                 "disease_detected": m["binary"]["disease_detected"],
+                "healthy_false_alarm": m["binary"]["healthy_false_alarm"],
             }
             flat.update({f"{split}/{mode}.{k}": v for k, v in values.items() if v is not None})
         flat[f"{split}/ece"] = r["ece"]
+        if r["healthy_auroc"] is not None:
+            flat[f"{split}/healthy_auroc"] = r["healthy_auroc"]
     return flat
 
 

@@ -29,6 +29,10 @@ dependencies = [
     "pydantic>=2.9",
     "pyyaml>=6.0",
     "mlflow>=3.0",
+    # --- Export embarqué (Apache-2.0 / MIT) ---
+    "onnx>=1.23",
+    "onnxscript>=0.7",   # requis par l'exporteur ONNX de PyTorch (torch.export)
+    "onnxruntime>=1.30",
 ]
 
 [project.scripts]
@@ -96,6 +100,8 @@ module = [
     "torchvision.*",
     "tqdm.*",
     "pandas.*",
+    "sklearn.*",
+    "onnxruntime.*",
 ]
 ignore_missing_imports = true
 

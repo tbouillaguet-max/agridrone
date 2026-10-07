@@ -18,7 +18,8 @@ Données (chantier 2) :
 Modèles (chantiers 4 et suivants) :
 
 * ``train``    — entraîne puis évalue ; la tâche est lue dans la config (``task``) ;
-* ``evaluate`` — réévalue le meilleur modèle d'un run (``--run runs/<tâche>/<run>``).
+* ``evaluate`` — réévalue le meilleur modèle d'un run (``--run runs/<tâche>/<run>``) ;
+* ``export``   — export ONNX du meilleur modèle d'un run, vérification et temps d'inférence.
 
 Les surcharges s'écrivent ``cle.sous_cle=valeur`` après les options.
 """
@@ -131,6 +132,23 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     cfg = load_experiment(run_dir / "config.yaml", args.overrides)
     out = Path(args.out).resolve() if args.out else None
     task_module(cfg.task).evaluate(cfg, run_dir, out_dir=out)
+    return 0
+
+
+def _cmd_export(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from agridrone.core.config import ConfigError
+    from agridrone.core.paths import resolve_path
+    from agridrone.export.onnx import export_run, format_report
+
+    run_dir = resolve_path(args.run)
+    if not (run_dir / "best.pt").is_file():
+        raise ConfigError(f"{run_dir} : best.pt absent (pas un dossier de run terminé)")
+    out = Path(args.out).resolve() if args.out else None
+    report = export_run(run_dir, out, repeat=args.repeat, measure=not args.no_benchmark)
+    print(format_report(report))
+    print(f"Export : {out or run_dir / 'export'}")
     return 0
 
 
@@ -272,6 +290,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="dossier des résultats (défaut : <run>/eval-<date>)")
     p.add_argument("overrides", nargs="*", help="surcharges, ex. eval.target_coverage=0.8")
     p.set_defaults(func=_cmd_evaluate)
+
+    p = sub.add_parser("export", help="export ONNX + vérification + temps d'inférence")
+    p.add_argument("--run", required=True, help="dossier du run (runs/<tâche>/<run>)")
+    p.add_argument("--out", help="dossier de sortie (défaut : <run>/export)")
+    p.add_argument("--repeat", type=_positive_int, default=20, help="mesures par configuration")
+    p.add_argument("--no-benchmark", action="store_true", help="exporter sans chronométrer")
+    p.set_defaults(func=_cmd_export)
 
     p_data = sub.add_parser("data", help="sources de données (chantier 2)")
     data_sub = p_data.add_subparsers(dest="data_command", required=True)

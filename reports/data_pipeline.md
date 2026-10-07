@@ -48,7 +48,7 @@ T6i** (EXIF), toutes prises le **31 mars 2021**, et non d'un Canon 5D Mark III.
 
 | Tâche | Emplacement | Format |
 |---|---|---|
-| Classification | `data/processed/classification/<ensemble>/<classe>/<source>__<fichier>` | liens physiques vers les images d'origine (pas de copie) + `manifest.csv` (une ligne par image, raison d'exclusion comprise) + `summary.json` |
+| Classification | `data/processed/classification/<ensemble>/<classe>/<source>__<fichier>` | liens physiques vers les images d'origine (pas de copie) + `manifest.csv` (une ligne par image, raison d'exclusion comprise ; colonne `file` = chemin dans le jeu préparé) + `summary.json`. Deux images homonymes d'une même source reçoivent un suffixe tiré de leur sha1 : aucune ne peut écraser l'autre |
 | Segmentation N bandes | `data/processed/segmentation/<jeu>/images/*.npy` + `masks/*.png` | float32 (C, H, W), bandes nommées dans `dataset.json` ; masque uint8, 255 = pixel ignoré ; `index.csv` (ensemble, pixels par classe) ; `band_stats_train.json` |
 | Tuiles d'orthophoto | `data/processed/segmentation/maize_orthotiles/<ortho>/<ensemble>/*.tif` | GeoTIFF par tuile (géoréférencement conservé), pixels invalides en NaN, index CSV |
 | Détection (YOLO) | — | reportée avec les pucerons |
@@ -100,6 +100,18 @@ préparation) :
 - **Piège évité** : albumentations écrête les images float à [0, 1]. Les augmentations
   multispectrales s'appliquent donc sur des valeurs dans [0, 1] (réflectance, ou comptes
   bruts / 65535) ; la normalisation z-score par bande vient **après**.
+- **Réductions sans repliement** : toute réduction de taille passe par une moyenne de
+  surface (`INTER_AREA`). Une interpolation bilinéaire qui divise la taille par plus de 2
+  (6000 px ramenés à 224) crée du repliement qui efface ou déforme les petits symptômes.
+- **Évaluation** : plus petit côté ramené à la taille d'entrée, puis recadrage central
+  carré. Les images 3:2 ne sont plus déformées.
+- **Graines par worker** (corrigé au chantier 4) : le `Compose` d'albumentations a son
+  propre générateur, insensible aux graines globales. Sans réensemencement dans chaque
+  worker du DataLoader, chaque époque rejouait la même suite d'augmentations, et les
+  workers la même suite entre eux. `seed_worker` appelle désormais `dataset.reseed()`
+  avec une graine propre au worker et à l'époque (test dédié).
+- **Dézoom en segmentation** : les bords créés par un dézoom reçoivent l'étiquette 255
+  (ignorée par la perte), et non « fond ».
 
 ## 5. Normalisation par bande (`src/agridrone/data/normalize.py`)
 

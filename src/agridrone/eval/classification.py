@@ -184,6 +184,22 @@ def summarize_predictions(
     }
 
 
+def healthy_auroc(probs: np.ndarray, y_true: np.ndarray, healthy_index: int) -> float | None:
+    """AUROC de p(sain) pour séparer images saines et malades (None si une seule sorte).
+
+    Mesure si le modèle **classe** encore bien les images, indépendamment de son
+    calibrage : une AUROC élevée avec beaucoup de fausses alertes signifie qu'un
+    seuil recalibré sur quelques images du terrain suffirait ; une AUROC proche de 0,5
+    qu'il faut réentraîner.
+    """
+    from sklearn.metrics import roc_auc_score
+
+    healthy = np.asarray(y_true) == healthy_index
+    if healthy.all() or not healthy.any():
+        return None
+    return float(roc_auc_score(healthy, np.asarray(probs)[:, healthy_index]))
+
+
 def expected_calibration_error(probs: np.ndarray, y_true: np.ndarray, n_bins: int = 15) -> float:
     """ECE : écart moyen (pondéré) entre confiance et exactitude, par tranche de confiance."""
     p = np.asarray(probs, dtype=np.float64)
