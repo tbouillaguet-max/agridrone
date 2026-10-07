@@ -75,17 +75,28 @@ def rgb_eval_transform(size: int) -> A.Compose:
 
 
 def multispectral_train_transform(
-    *, scale: tuple[float, float] = (0.8, 1.25), seed: int | None = None
+    *,
+    crop: int | None = None,
+    scale: tuple[float, float] = (0.8, 1.25),
+    seed: int | None = None,
+    ignore_index: int = 255,
 ) -> A.Compose:
-    """Segmentation N bandes (image float H×W×C dans [0, 1] + masque H×W)."""
+    """Segmentation N bandes (image float H×W×C dans [0, 1] + masque H×W).
+
+    ``crop`` : recadrage aléatoire carré préalable (tuiles d'entraînement). Les bords
+    créés par un dézoom reçoivent l'étiquette ``ignore_index`` : ils ne comptent pas
+    dans la perte (et ne deviennent pas du « fond » inventé).
+    """
+    transforms: list[Any] = [] if crop is None else [A.RandomCrop(height=crop, width=crop)]
     return A.Compose(
         [
+            *transforms,
             A.RandomRotate90(p=0.5),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
             # Variation d'altitude : interpolation bilinéaire pour l'image, plus proche
             # voisin pour le masque (pas de classe inventée aux frontières).
-            A.Affine(scale=scale, p=0.5, border_mode=0, fill=0, fill_mask=0),
+            A.Affine(scale=scale, p=0.5, border_mode=0, fill=0, fill_mask=ignore_index),
             A.OneOf([A.MotionBlur(blur_limit=(3, 7)), A.Defocus(radius=(1, 2))], p=0.2),
             GlobalGain(gain_range=(0.85, 1.15), p=0.5),
         ],

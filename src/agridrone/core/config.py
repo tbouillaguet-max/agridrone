@@ -211,7 +211,10 @@ TASK_SCHEMAS: dict[str, type[ExperimentConfig]] = {"base": ExperimentConfig}
 
 #: Module qui enregistre le schéma d'une tâche et fournit ``train(cfg)`` et
 #: ``evaluate(cfg, run_dir)`` ; importé à la demande (torch, timm… sont longs à charger).
-TASK_MODULES: dict[str, str] = {"classification": "agridrone.training.classification"}
+TASK_MODULES: dict[str, str] = {
+    "classification": "agridrone.training.classification",
+    "segmentation": "agridrone.training.segmentation",
+}
 
 
 def register_task_schema(task: str) -> Callable[[SchemaT], SchemaT]:

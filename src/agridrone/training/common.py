@@ -74,7 +74,8 @@ def balanced_class_weights(labels: Sequence[int], n_classes: int) -> torch.Tenso
 
 def plot_history(history: Sequence[dict[str, float]], path: Path, *, metric: str) -> Path:
     """Deux panneaux côte à côte (échelles différentes, jamais deux axes y) :
-    pertes d'entraînement et de validation, puis la métrique de validation."""
+    perte d'entraînement (et de validation si ``val_loss`` est fourni), puis la
+    métrique de validation."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -84,9 +85,12 @@ def plot_history(history: Sequence[dict[str, float]], path: Path, *, metric: str
     blue, orange, ink, grid = "#2a78d6", "#eb6834", "#1f2328", "#d9dde3"
     fig, (ax_loss, ax_metric) = plt.subplots(1, 2, figsize=(9, 3.2), layout="constrained")
     ax_loss.plot(epochs, [h["train_loss"] for h in history], color=blue, lw=2, label="entraînement")
-    ax_loss.plot(epochs, [h["val_loss"] for h in history], color=orange, lw=2, label="validation")
-    ax_loss.set_title("perte (entropie croisée)", fontsize=10, color=ink)
-    ax_loss.legend(frameon=False, fontsize=9)
+    if all("val_loss" in h for h in history):
+        ax_loss.plot(
+            epochs, [h["val_loss"] for h in history], color=orange, lw=2, label="validation"
+        )
+        ax_loss.legend(frameon=False, fontsize=9)
+    ax_loss.set_title("perte", fontsize=10, color=ink)
     ax_metric.plot(epochs, [h[metric] for h in history], color=blue, lw=2, marker="o", ms=4)
     ax_metric.set_title(f"{metric} (validation)", fontsize=10, color=ink)
     best = max(range(len(history)), key=lambda i: history[i][metric])

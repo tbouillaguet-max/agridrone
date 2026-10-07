@@ -1,0 +1,6 @@
+# Ablation : U-Net sur les 3 bandes visibles seulement (R, V, B), même capteur.
+# Mesure ce qu'apportent le red-edge et le proche infrarouge.
+_base_: base.yaml
+name: unet_rvb
+data:
+  bands: [red, green, blue]

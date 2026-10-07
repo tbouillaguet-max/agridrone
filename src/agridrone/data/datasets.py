@@ -82,3 +82,66 @@ def classification_split(
         raise ValueError(f"classes absentes de la config dans l'ensemble {split!r} : {unknown}")
     index = {name: i for i, name in enumerate(classes)}
     return [root / f for f in rows["file"]], [index[label] for label in rows["label"]]
+
+
+def load_segmentation_sample(data_dir: Path, sample: str) -> tuple[np.ndarray, np.ndarray]:
+    """Image (C, H, W) float32 et masque (H, W) uint8 d'un jeu de segmentation préparé
+    (``images/<sample>.npy`` et ``masks/<sample>.png``, voir ``data.segmentation``)."""
+    image = np.load(data_dir / "images" / f"{sample}.npy").astype(np.float32, copy=False)
+    with Image.open(data_dir / "masks" / f"{sample}.png") as m:
+        mask = np.asarray(m)
+    if image.ndim != 3 or image.shape[1:] != mask.shape:
+        raise ValueError(f"{sample} : image {image.shape} et masque {mask.shape} incompatibles")
+    return image, mask
+
+
+class SegmentationDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
+    """Échantillons N bandes : renvoie (C, h, w) normalisé (z-score) et masque int64.
+
+    ``band_indices`` choisit et ordonne les canaux (bandes nommées résolues en amont).
+    Les augmentations s'appliquent aux valeurs dans [0, 1], en H×W×C, **avant** le
+    z-score (albumentations écrête les images float à [0, 1]). Avec
+    ``samples_per_image`` > 1, chaque image est tirée plusieurs fois par époque, avec
+    des recadrages aléatoires différents.
+    """
+
+    def __init__(
+        self,
+        data_dir: Path,
+        samples: Sequence[str],
+        band_indices: Sequence[int],
+        *,
+        mean: Sequence[float],
+        std: Sequence[float],
+        transform: A.Compose | None = None,
+        samples_per_image: int = 1,
+    ) -> None:
+        if len(mean) != len(band_indices) or len(std) != len(band_indices):
+            raise ValueError("une moyenne et un écart-type par bande d'entrée")
+        self.dir = Path(data_dir)
+        self.samples = list(samples)
+        self.band_indices = list(band_indices)
+        self.transform = transform
+        self.samples_per_image = samples_per_image
+        self._mean = np.asarray(mean, np.float32)[:, None, None]
+        self._std = np.asarray(std, np.float32)[:, None, None]
+
+    def __len__(self) -> int:
+        return len(self.samples) * self.samples_per_image
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        image, mask = load_segmentation_sample(self.dir, self.samples[index % len(self.samples)])
+        image = image[self.band_indices]
+        if self.transform is not None:
+            out = self.transform(image=np.ascontiguousarray(image.transpose(1, 2, 0)), mask=mask)
+            image, mask = out["image"].transpose(2, 0, 1), out["mask"]
+        x = (image - self._mean) / self._std
+        return (
+            torch.from_numpy(np.ascontiguousarray(x, dtype=np.float32)),
+            torch.from_numpy(mask.astype(np.int64)),
+        )
+
+    def reseed(self, seed: int) -> None:
+        """Appelé par ``seed_worker`` : graine propre à chaque worker et à chaque époque."""
+        if self.transform is not None:
+            self.transform.set_random_seed(seed)

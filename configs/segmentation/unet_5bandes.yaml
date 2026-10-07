@@ -1,0 +1,5 @@
+# U-Net, 5 bandes du DJI P4 Multispectral (B, V, R, RE, PIR).
+_base_: base.yaml
+name: unet_5bandes
+data:
+  bands: [blue, green, red, red_edge, nir]
