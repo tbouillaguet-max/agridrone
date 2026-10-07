@@ -103,11 +103,11 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : 
 | Chantier | Contenu | Commande | État |
 |---|---|---|---|
 | 0 | Socle (structure, device, graines, configs, MLflow) | `agridrone info`, `agridrone config`, `agridrone smoke` | fait |
-| 1 | Inventaire et vérification des données | — (livrable : [reports/data_inventory.md](reports/data_inventory.md)) | livré, en attente de validation |
+| 1 | Inventaire et vérification des données | — (livrables : [reports/data_inventory.md](reports/data_inventory.md), [reports/data_requests.md](reports/data_requests.md)) | v2 vérifiée à la source, en attente de validation |
 | 2 | Pipeline de données : téléchargement, conversion, découpage par source/parcelle/date, tuilage, augmentations | à venir | attend la validation du chantier 1 |
-| 3 | Baseline YOLO11n/s pucerons (RVB, petits objets, SAHI) | à venir | — |
+| 3 | Baseline YOLO11n/s pucerons (RVB, petits objets, SAHI) | — | **reporté** (pucerons mis de côté) |
 | 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny) | à venir | — |
-| 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu) | à venir | aucun jeu public vérifié pour le blé : alternative proposée (inventaire, §7.3) |
+| 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu) | à venir | aucun jeu public pour le blé : chaîne validée sur WeedsGalore (inventaire, §7.2) |
 | 6 | Rapport des baselines, export ONNX, temps d'inférence | à venir | — |
 
 Les commandes des chantiers 2 à 6 seront ajoutées à la CLI et documentées ici au
