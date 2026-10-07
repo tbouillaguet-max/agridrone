@@ -8,11 +8,15 @@ mesurés et les comparaisons.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import platform
-from typing import Any
+from typing import Any, Literal
 
 import torch
+
+#: Précision de calcul : float32, ou bfloat16 par autocast (poids maîtres en float32).
+Precision = Literal["fp32", "bf16"]
 
 
 class DeviceUnavailableError(RuntimeError):
@@ -86,3 +90,19 @@ def describe_device(device: torch.device) -> dict[str, Any]:
     elif device.type == "mps":
         info["mps_built"] = torch.backends.mps.is_built()
     return info
+
+
+def autocast_context(
+    device: torch.device, precision: Precision
+) -> contextlib.AbstractContextManager[Any]:
+    """Contexte de calcul : rien en ``fp32`` ; autocast bfloat16 en ``bf16``.
+
+    Sur CPU, bf16 n'est rapide qu'avec les instructions AMX ou AVX512-BF16 (Xeon
+    récents) ; sur GPU, il faut une architecture Ampere ou plus récente (Jetson Orin
+    compris). Les pertes sont à calculer en float32, hors du contexte.
+    """
+    if precision == "fp32":
+        return contextlib.nullcontext()
+    if precision == "bf16":
+        return torch.autocast(device_type=device.type, dtype=torch.bfloat16)
+    raise ValueError(f"Précision inconnue : {precision!r} (attendu : fp32, bf16)")

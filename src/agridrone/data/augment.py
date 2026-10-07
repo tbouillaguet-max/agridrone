@@ -12,6 +12,10 @@
 Les images multispectrales doivent être en réflectance (ou ramenées dans [0, 1]) :
 albumentations écrête les images float à [0, 1]. La normalisation z-score par bande
 s'applique **après** l'augmentation.
+
+Les réductions de taille se font par moyenne de surface (``INTER_AREA``) : une
+interpolation bilinéaire qui divise la taille par plus de 2 crée du repliement
+(aliasing) qui efface ou déforme les petits symptômes (pustules, taches).
 """
 
 from __future__ import annotations
@@ -44,7 +48,9 @@ def rgb_train_transform(size: int, *, seed: int | None = None) -> A.Compose:
     """Classification RVB (image uint8 H×W×3 → H×W×3 redimensionnée à ``size``)."""
     return A.Compose(
         [
-            A.RandomResizedCrop(size=(size, size), scale=(0.5, 1.0), ratio=(0.8, 1.25)),
+            A.RandomResizedCrop(
+                size=(size, size), scale=(0.5, 1.0), ratio=(0.8, 1.25), area_for_downscale="image"
+            ),
             A.RandomRotate90(p=0.5),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.5),
@@ -58,8 +64,14 @@ def rgb_train_transform(size: int, *, seed: int | None = None) -> A.Compose:
 
 
 def rgb_eval_transform(size: int) -> A.Compose:
-    """Évaluation : redimensionnement seul, sans hasard."""
-    return A.Compose([A.Resize(size, size)])
+    """Évaluation, sans hasard : plus petit côté ramené à ``size`` puis recadrage central.
+
+    Pas de déformation des images non carrées (6000×4000 en Éthiopie) ; le recadrage
+    carré correspond à l'usage visé (tuiles carrées découpées dans l'image drone).
+    """
+    return A.Compose(
+        [A.SmallestMaxSize(max_size=size, area_for_downscale="image"), A.CenterCrop(size, size)]
+    )
 
 
 def multispectral_train_transform(

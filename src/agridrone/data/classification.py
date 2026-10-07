@@ -18,7 +18,8 @@
      dont un quasi-doublon figure dans une source d'entraînement en est retirée
      (fuite).
 5. **Matérialisation** : liens physiques ``processed/classification/<ensemble>/<classe>/``
-   et manifeste CSV (une ligne par image, toutes les décisions tracées).
+   et manifeste CSV (une ligne par image, toutes les décisions tracées ; colonne
+   ``file`` = chemin de l'image dans le jeu préparé).
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ import re
 import shutil
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
 import numpy as np
@@ -260,25 +261,59 @@ def assign_splits(df: pd.DataFrame, cfg: ClassificationDataConfig) -> pd.DataFra
     return df
 
 
-def materialize(df: pd.DataFrame, interim_dir: Path, out_dir: Path) -> Path:
-    """Crée ``out_dir/<ensemble>/<classe>/<source>__<nom>`` (liens physiques) et le manifeste."""
+def processed_files(kept: pd.DataFrame) -> list[str]:
+    """Chemin de chaque image gardée dans le jeu préparé : ``<ensemble>/<classe>/<source>__<nom>``.
+
+    Deux images d'une même source peuvent porter le même nom dans des dossiers
+    différents : leur nom reçoit alors le début de leur sha1 pour rester unique.
+    """
+    names = [
+        f"{row.split}/{row.label}/{row.source}__{PurePosixPath(row.path).name}"
+        for row in kept.itertuples()
+    ]
+    counts = Counter(names)
+    files = []
+    for name, sha1 in zip(names, kept["sha1"], strict=True):
+        if counts[name] > 1:
+            p = PurePosixPath(name)
+            name = f"{p.parent}/{p.stem}__{sha1[:8]}{p.suffix}"
+        files.append(name)
+    if len(set(files)) != len(files):
+        raise ValueError("noms de fichiers en double dans le jeu préparé")
+    return files
+
+
+def _link_or_copy(src: Path, dst: Path) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(src, dst)
+    except FileExistsError:
+        raise  # jamais d'écrasement silencieux
+    except OSError:  # liens physiques non pris en charge, ou deux volumes différents
+        shutil.copy2(src, dst)
+
+
+def materialize(df: pd.DataFrame, interim_dir: Path, out_dir: Path) -> pd.DataFrame:
+    """Crée ``out_dir/<ensemble>/<classe>/<source>__<nom>`` (liens physiques) et le manifeste.
+
+    Renvoie le manifeste écrit : colonne ``file`` = chemin de l'image dans ``out_dir``
+    (vide pour les images écartées).
+    """
     if out_dir.exists():
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True)
-    for row in df[df["excluded_reason"] == ""].itertuples():
-        src = interim_dir / row.path
-        dst = out_dir / row.split / row.label / f"{row.source}__{Path(row.path).name}"
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            os.link(src, dst)
-        except OSError:
-            shutil.copy2(src, dst)
+    df = df.copy()
+    kept = df["excluded_reason"] == ""
+    df["file"] = ""
+    df.loc[kept, "file"] = processed_files(df[kept])
+    for row in df[kept].itertuples():
+        _link_or_copy(interim_dir / row.path, out_dir / row.file)
     df.to_csv(out_dir / "manifest.csv", index=False)
     summary = summarize(df)
     (out_dir / "summary.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    return out_dir
+    return df
 
 
 def summarize(df: pd.DataFrame) -> dict[str, Any]:
@@ -304,5 +339,4 @@ def prepare_classification(
         raise ValueError("aucune image trouvée")
     df = add_fingerprints(df, interim_dir)
     df = assign_splits(df, cfg)
-    materialize(df, interim_dir, out_dir)
-    return df
+    return materialize(df, interim_dir, out_dir)

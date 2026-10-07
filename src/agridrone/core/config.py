@@ -17,6 +17,7 @@ Principes
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import re
 from collections.abc import Callable, Iterable, Mapping
@@ -208,6 +209,10 @@ SchemaT = TypeVar("SchemaT", bound=type[ExperimentConfig])
 
 TASK_SCHEMAS: dict[str, type[ExperimentConfig]] = {"base": ExperimentConfig}
 
+#: Module qui enregistre le schéma d'une tâche et fournit ``train(cfg)`` et
+#: ``evaluate(cfg, run_dir)`` ; importé à la demande (torch, timm… sont longs à charger).
+TASK_MODULES: dict[str, str] = {"classification": "agridrone.training.classification"}
+
 
 def register_task_schema(task: str) -> Callable[[SchemaT], SchemaT]:
     """Décorateur : associe un schéma de config à une valeur de ``task``."""
@@ -219,9 +224,19 @@ def register_task_schema(task: str) -> Callable[[SchemaT], SchemaT]:
     return decorator
 
 
+def task_module(task: str) -> Any:
+    """Importe le module d'une tâche (ce qui enregistre aussi son schéma)."""
+    if task not in TASK_MODULES:
+        known = ", ".join(sorted(TASK_MODULES))
+        raise ConfigError(f"Aucun entraînement pour la tâche {task!r} (disponibles : {known})")
+    return importlib.import_module(TASK_MODULES[task])
+
+
 def validate_config(raw: Mapping[str, Any]) -> ExperimentConfig:
     """Valide une config brute avec le schéma correspondant à sa ``task``."""
     task = raw.get("task", "base")
+    if isinstance(task, str) and task not in TASK_SCHEMAS and task in TASK_MODULES:
+        task_module(task)
     schema = TASK_SCHEMAS.get(task) if isinstance(task, str) else None
     if schema is None:
         known = ", ".join(sorted(TASK_SCHEMAS))

@@ -1,0 +1,16 @@
+# ConvNeXt-Tiny (28 M paramètres), poids ImageNet-22k affinés sur 1k « fb_in22k_ft_in1k »
+# (licence Apache-2.0, fiche Hugging Face timm/convnext_tiny.fb_in22k_ft_in1k).
+_base_: base.yaml
+name: convnext_tiny
+
+model:
+  arch: convnext_tiny.fb_in22k_ft_in1k
+  drop_rate: 0.0
+  drop_path_rate: 0.1
+
+train:
+  lr: 1.0e-4
+  weight_decay: 0.05
+  # bf16 : entraînement 2 fois plus rapide sur un CPU avec AMX (mesuré), et sur GPU
+  # Ampere ou plus récent. Sur un CPU sans AMX ni AVX512-BF16, repasser en fp32.
+  precision: bf16

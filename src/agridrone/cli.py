@@ -15,6 +15,11 @@ Données (chantier 2) :
 * ``data prepare-classification`` — jeu « dossiers par classe » + manifeste ;
 * ``data prepare-segmentation`` — jeux N bandes (.npy + masques) et tuilage d'orthophotos.
 
+Modèles (chantiers 4 et suivants) :
+
+* ``train``    — entraîne puis évalue ; la tâche est lue dans la config (``task``) ;
+* ``evaluate`` — réévalue le meilleur modèle d'un run (``--run runs/<tâche>/<run>``).
+
 Les surcharges s'écrivent ``cle.sous_cle=valeur`` après les options.
 """
 
@@ -101,6 +106,31 @@ def _cmd_smoke(args: argparse.Namespace) -> int:
     print(f"Perte finale : {loss.item():.6f} (identique d'un lancement à l'autre sur CPU)")
     if run is not None:
         print(f"MLflow : run {run.info.run_id} (voir `uv run mlflow ui`)")
+    return 0
+
+
+def _cmd_train(args: argparse.Namespace) -> int:
+    from agridrone.core.config import load_experiment, task_module
+    from agridrone.core.paths import resolve_path
+
+    cfg = load_experiment(resolve_path(args.config), args.overrides)
+    run_dir = task_module(cfg.task).train(cfg)
+    print(f"Run terminé : {run_dir}")
+    return 0
+
+
+def _cmd_evaluate(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from agridrone.core.config import ConfigError, load_experiment, task_module
+    from agridrone.core.paths import resolve_path
+
+    run_dir = resolve_path(args.run)
+    if not (run_dir / "config.yaml").is_file():
+        raise ConfigError(f"{run_dir} n'est pas un dossier de run (config.yaml absent)")
+    cfg = load_experiment(run_dir / "config.yaml", args.overrides)
+    out = Path(args.out).resolve() if args.out else None
+    task_module(cfg.task).evaluate(cfg, run_dir, out_dir=out)
     return 0
 
 
@@ -231,6 +261,17 @@ def build_parser() -> argparse.ArgumentParser:
         p.set_defaults(func=func)
         if name == "smoke":
             p.add_argument("--steps", type=_positive_int, default=20)
+
+    p = sub.add_parser("train", help="entraîne puis évalue (tâche lue dans la config)")
+    p.add_argument("-c", "--config", required=True, help="fichier YAML de l'expérience")
+    p.add_argument("overrides", nargs="*", help="surcharges cle.sous_cle=valeur")
+    p.set_defaults(func=_cmd_train)
+
+    p = sub.add_parser("evaluate", help="réévalue le meilleur modèle d'un run")
+    p.add_argument("--run", required=True, help="dossier du run (runs/<tâche>/<run>)")
+    p.add_argument("--out", help="dossier des résultats (défaut : <run>/eval-<date>)")
+    p.add_argument("overrides", nargs="*", help="surcharges, ex. eval.target_coverage=0.8")
+    p.set_defaults(func=_cmd_evaluate)
 
     p_data = sub.add_parser("data", help="sources de données (chantier 2)")
     data_sub = p_data.add_subparsers(dest="data_command", required=True)

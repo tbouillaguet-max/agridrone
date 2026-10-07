@@ -1,0 +1,15 @@
+# EfficientNet-B0 (5,3 M paramètres), poids ImageNet-1k « ra_in1k » (licence Apache-2.0,
+# fiche Hugging Face timm/efficientnet_b0.ra_in1k).
+_base_: base.yaml
+name: efficientnet_b0
+
+model:
+  arch: efficientnet_b0.ra_in1k
+  drop_rate: 0.2
+  drop_path_rate: 0.1
+
+train:
+  lr: 5.0e-4
+  weight_decay: 0.01
+  # bf16 n'accélère pas ce modèle sur CPU (convolutions en profondeur) : float32.
+  precision: fp32

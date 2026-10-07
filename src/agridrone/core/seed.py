@@ -48,10 +48,20 @@ def seed_everything(seed: int, *, deterministic: bool = False) -> int:
 
 def seed_worker(worker_id: int) -> None:
     """``worker_init_fn`` pour DataLoader : dérive les graines NumPy/Python du worker
-    de la graine PyTorch (elle-même dérivée du ``generator`` du DataLoader)."""
+    de la graine PyTorch (elle-même dérivée du ``generator`` du DataLoader).
+
+    La graine du worker change à chaque époque et diffère d'un worker à l'autre. Un jeu
+    de données qui a son propre générateur (``Compose`` d'albumentations, qui ignore les
+    graines globales) expose une méthode ``reseed(seed)`` : elle est appelée ici. Sans
+    cela, chaque worker rejouerait à chaque époque la même suite d'augmentations.
+    """
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)  # noqa: NPY002
     random.seed(worker_seed)
+    info = torch.utils.data.get_worker_info()
+    reseed = getattr(info.dataset, "reseed", None) if info is not None else None
+    if callable(reseed):
+        reseed(worker_seed)
 
 
 def make_generator(seed: int) -> torch.Generator:

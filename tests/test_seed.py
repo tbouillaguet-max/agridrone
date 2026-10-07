@@ -66,3 +66,39 @@ def test_dataloader_workers_are_reproducible() -> None:
     assert _epoch(7) == first
     assert _epoch(8) != first
     assert len(set(first)) == len(first)  # pas de tirages dupliqués entre workers
+
+
+class _OwnRng(Dataset[float]):
+    """Imite un ``Compose`` d'albumentations : générateur propre, insensible aux graines
+    globales, avec la méthode ``reseed`` appelée par ``seed_worker``."""
+
+    def __init__(self) -> None:
+        self.rng = random.Random(0)
+
+    def reseed(self, seed: int) -> None:
+        self.rng = random.Random(seed)
+
+    def __len__(self) -> int:
+        return 8
+
+    def __getitem__(self, index: int) -> float:
+        return self.rng.random()
+
+
+def _two_epochs(seed: int) -> list[list[float]]:
+    loader = DataLoader(
+        _OwnRng(),
+        batch_size=2,
+        num_workers=2,
+        worker_init_fn=seed_worker,
+        generator=make_generator(seed),
+    )
+    return [[v for batch in loader for v in batch.tolist()] for _ in range(2)]
+
+
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
+def test_seed_worker_reseeds_dataset_generator() -> None:
+    first = _two_epochs(3)
+    assert _two_epochs(3) == first  # reproductible
+    assert first[0] != first[1]  # nouvelles augmentations à chaque époque
+    assert len(set(first[0])) == len(first[0])  # pas la même suite dans les deux workers
