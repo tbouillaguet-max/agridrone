@@ -33,7 +33,9 @@ train:
   samples_per_image: 4          # 104 images × 4 = 416 recadrages par époque
   loss: ce_dice
   patience: 10                  # époques sans progrès du mIoU de validation
-  precision: fp32
+  # bf16 : entraînement 2,3 fois plus rapide sur un CPU avec AMX (mesuré : 12,6 contre
+  # 5,4 recadrages/s) ; sur un CPU sans AMX ni AVX512-BF16, repasser en fp32.
+  precision: bf16
 
 eval:
   tile: 256                     # inférence par tuiles, comme sur une orthomosaïque
