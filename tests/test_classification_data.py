@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from PIL import Image
 
@@ -146,3 +147,46 @@ def test_sequence_gap_groups_consecutive_files(tmp_path: Path) -> None:
     group = dict(zip(df["path"].str.split("/").str[-1], df["group"], strict=True))
     assert group["Rust1.png"] == group["Rust2.png"] == group["Rust3.png"]
     assert len({group["Rust1.png"], group["Rust10.png"], group["Rust40.png"]}) == 3
+
+
+def _row(name: str, source: str, role: str, flip64: int, flip256: int) -> dict[str, object]:
+    """Ligne de manifeste aux empreintes fabriquées : une base non constante dont on
+    inverse les ``flip*`` bits de poids faible (distance de Hamming à la base)."""
+    base64, base256 = 0x5555555555555555, int("5" * 64, 16)
+    return {
+        "path": f"{source}/{name}.jpg",
+        "source": source,
+        "role": role,
+        "raw_label": "Rust",
+        "label": "rust",
+        "width": 64,
+        "height": 64,
+        "exif_date": "",
+        "camera": "",
+        "dhash": np.uint64(base64 ^ ((1 << flip64) - 1)),
+        "dhash256": f"{base256 ^ ((1 << flip256) - 1):064x}",
+        "sha1": name,
+    }
+
+
+def test_test_source_never_changes_train_groups() -> None:
+    """Une image de test proche de deux images d'entraînement (A et B, elles-mêmes trop
+    différentes pour être groupées) ne doit pas fusionner leurs groupes."""
+    cfg = ClassificationDataConfig(
+        classes=["rust"],
+        fractions={"train": 0.5, "val": 0.25, "test": 0.25},
+        sources={
+            "tr": SourceSpec(mapping={"Rust": "rust"}, role="train"),
+            "te": SourceSpec(mapping={"Rust": "rust"}, role="test"),
+        },
+    )
+    train_rows = [_row("A", "tr", "train", 0, 0), _row("B", "tr", "train", 16, 24)]
+    bridge = _row("T", "te", "test", 8, 12)  # à 8 / 12 bits de A et de B
+    alone = assign_splits(pd.DataFrame(train_rows), cfg)
+    both = assign_splits(pd.DataFrame([*train_rows, bridge]), cfg)
+    assert alone["group"].nunique() == 2
+    assert both.loc[both["role"] == "train", "group"].tolist() == alone["group"].tolist()
+    assert both.loc[both["role"] == "train", "split"].tolist() == alone["split"].tolist()
+    assert both.loc[both["role"] == "test", "excluded_reason"].item() == (
+        "quasi-doublon d'une image d'entraînement"
+    )

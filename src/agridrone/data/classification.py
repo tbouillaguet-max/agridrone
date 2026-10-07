@@ -247,7 +247,12 @@ def assign_splits(df: pd.DataFrame, cfg: ClassificationDataConfig) -> pd.DataFra
         first, *rest = list(members)
         pairs.extend((first, other, 0) for other in rest)
     pairs.extend(_sequence_pairs(df, cfg))
-    df["group"] = cluster_ids(len(df), pairs)
+    # Liens limités à un même rôle : ajouter un jeu de test ne peut jamais modifier le
+    # découpage des sources d'entraînement (une image de test proche de deux images
+    # d'entraînement ne fusionne pas leurs groupes). Les fuites entre rôles sont traitées
+    # plus haut, par exclusion des quasi-doublons.
+    role = df["role"].to_numpy()
+    df["group"] = cluster_ids(len(df), [p for p in pairs if role[p[0]] == role[p[1]]])
 
     df["split"] = ""
     kept = df["excluded_reason"] == ""
