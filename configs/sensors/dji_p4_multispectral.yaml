@@ -1,0 +1,15 @@
+# DJI Phantom 4 Multispectral (5 capteurs monochromes).
+# Source des longueurs d'onde : Celikkan et al. 2025, WeedsGalore (WACV), § 3
+# (B 450±16, V 560±16, R 650±16, RE 730±16, PIR 840±26 nm).
+# L'ordre B, V, R, RE, PIR est celui du jeu maïs (Zenodo 22062459, v2.1) ;
+# vérifier l'ordre réel de chaque jeu au moment de sa conversion.
+name: dji_p4_multispectral
+reflectance: false
+scale: 1.0
+source: "WeedsGalore (WACV 2025) ; Zenodo 22062459 v2.1"
+bands:
+  - {name: blue, center_nm: 450, fwhm_nm: 32}
+  - {name: green, center_nm: 560, fwhm_nm: 32}
+  - {name: red, center_nm: 650, fwhm_nm: 32}
+  - {name: red_edge, center_nm: 730, fwhm_nm: 32}
+  - {name: nir, center_nm: 840, fwhm_nm: 52}

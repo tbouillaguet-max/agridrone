@@ -1,0 +1,47 @@
+# Jeu de classification des maladies du blé (chantier 2 → chantier 4).
+# Préparation : uv run agridrone data prepare-classification
+#
+# Classes : les maladies foliaires majeures du blé tendre en France + sain.
+# Rôles :
+#   train : découpé par groupes en train / val / test (test intra-source) ;
+#   test  : jeu de test inter-sources `test_<source>`, jamais vu à l'entraînement.
+# Les sources de statut `candidate` du registre ne servent qu'au test.
+classes: [healthy, yellow_rust, brown_rust, septoria, powdery_mildew]
+fractions: {train: 0.7, val: 0.15, test: 0.15}
+# Quasi-doublons : candidats dHash 64 bits (≤ 8), confirmés en dHash 256 bits (≤ 12).
+near_duplicate_distance: 8
+near_duplicate_confirm: 12
+seed: 0
+
+sources:
+  # Royaume-Uni (John Innes Centre), champ et serre. Pas de date EXIF (sauf 25
+  # images) : groupes = quasi-doublons + séries de fichiers consécutifs.
+  jic_wheat_disease_999:
+    root: "Long 2023 Plant Path 999 photos"
+    label_from: filename_prefix
+    role: train
+    sequence_gap: 2
+    mapping:
+      Healthy: healthy
+      YellowRust: yellow_rust
+      BrownRust: brown_rust
+      Septoria: septoria
+      Mildew: powdery_mildew
+
+  # Éthiopie (Holeta), une seule journée de prise de vue : test inter-sources.
+  ethiopia_wheat_leaf:
+    root: "wheat_leaf/wheat_leaf"
+    role: test
+    mapping:
+      Healthy: healthy
+      stripe_rust: yellow_rust
+      septoria: septoria
+
+  # Kaggle, smartphones, 2022–2023 (provenance à confirmer) : test inter-sources.
+  # Les sous-dossiers train/validation/test d'origine sont ignorés (tout est test).
+  kaggle_yellowrust_2223:
+    root: "yellowrust-2223-dataset/YR-22-23"
+    role: test
+    mapping:
+      healthy: healthy
+      rust: yellow_rust

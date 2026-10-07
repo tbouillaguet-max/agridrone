@@ -7,6 +7,14 @@ Commandes disponibles (chantier 0) :
 * ``smoke``  — run de bout en bout (graines, device, dossier de run, MLflow)
   sur un mini-modèle et des données aléatoires, pour valider l'installation.
 
+Données (chantier 2) :
+
+* ``data list``     — sources du registre, statut et licence ;
+* ``data download`` — téléchargement idempotent, vérification, extraction ;
+* ``data verify``   — revérifie les empreintes des fichiers déjà téléchargés ;
+* ``data prepare-classification`` — jeu « dossiers par classe » + manifeste ;
+* ``data prepare-segmentation`` — jeux N bandes (.npy + masques) et tuilage d'orthophotos.
+
 Les surcharges s'écrivent ``cle.sous_cle=valeur`` après les options.
 """
 
@@ -20,6 +28,8 @@ from collections.abc import Sequence
 import yaml
 
 DEFAULT_CONFIG = "configs/base.yaml"
+DEFAULT_REGISTRY = "configs/data/sources.yaml"
+DEFAULT_LOCK = "configs/data/sources.lock.yaml"
 
 
 def _positive_int(text: str) -> int:
@@ -94,6 +104,115 @@ def _cmd_smoke(args: argparse.Namespace) -> int:
     return 0
 
 
+def _data_context(args: argparse.Namespace):  # type: ignore[no-untyped-def]
+    from agridrone.core.config import load_experiment
+    from agridrone.core.paths import resolve_path
+    from agridrone.data.sources import LockFile, load_registry
+
+    cfg = load_experiment(resolve_path(args.config))
+    registry = load_registry(resolve_path(args.registry))
+    lock = LockFile(resolve_path(DEFAULT_LOCK))
+    return registry, lock, resolve_path(cfg.paths.raw), resolve_path(cfg.paths.interim)
+
+
+def _cmd_data_list(args: argparse.Namespace) -> int:
+    registry, lock, raw_dir, _ = _data_context(args)
+    for source_id, src in registry.sources.items():
+        size = sum(
+            f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size", 0) for f in src.files
+        )
+        present = all((raw_dir / source_id / f.name).exists() for f in src.files) and src.files
+        print(
+            f"{source_id:28s} {src.status:9s} {src.license:22s} {src.task:14s} "
+            f"{size / 1e9:6.2f} Go {'téléchargé' if present else ''}"
+        )
+    return 0
+
+
+def _cmd_data_download(args: argparse.Namespace) -> int:
+    from agridrone.data.sources import fetch_source
+
+    registry, lock, raw_dir, interim_dir = _data_context(args)
+    lock.prune(registry)
+    failures: dict[str, str] = {}
+    for source_id, src in registry.selected(args.ids, args.include_candidates).items():
+        print(f"[{source_id}] {src.title} ({src.license}, {src.status})", flush=True)
+        try:
+            results = fetch_source(
+                source_id,
+                src,
+                raw_dir,
+                interim_dir,
+                lock,
+                extract=not args.no_extract,
+                progress=True,
+            )
+        except Exception as exc:  # une source en échec ne bloque pas les suivantes
+            failures[source_id] = f"{type(exc).__name__}: {exc}"
+            print(f"   ÉCHEC : {failures[source_id]}", file=sys.stderr, flush=True)
+            continue
+        for r in results:
+            digest, size_mb = r.digests.sha256[:16], r.digests.size / 1e6
+            print(f"   {r.status:10s} {r.path.name}  sha256={digest}…  {size_mb:.1f} Mo")
+    if failures:
+        print(f"{len(failures)} source(s) en échec : {', '.join(failures)}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _cmd_data_verify(args: argparse.Namespace) -> int:
+    from agridrone.data.sources import IntegrityError, check_digests, file_digests
+
+    registry, lock, raw_dir, _ = _data_context(args)
+    failures = 0
+    for source_id, src in registry.sources.items():
+        for f in src.files:
+            path = raw_dir / source_id / f.name
+            if not path.exists():
+                continue
+            try:
+                check_digests(file_digests(path), f, lock.get(f"{source_id}/{f.name}"))
+                print(f"OK      {source_id}/{f.name}")
+            except IntegrityError as exc:
+                failures += 1
+                print(f"ÉCHEC   {exc}")
+    return 1 if failures else 0
+
+
+def _cmd_data_prepare_classification(args: argparse.Namespace) -> int:
+    from agridrone.core.config import load_experiment
+    from agridrone.core.paths import resolve_path
+    from agridrone.data.classification import (
+        load_classification_config,
+        prepare_classification,
+        summarize,
+    )
+
+    cfg = load_experiment(resolve_path(args.config))
+    data_cfg = load_classification_config(resolve_path(args.data_config))
+    out_dir = resolve_path(cfg.paths.processed) / "classification"
+    df = prepare_classification(data_cfg, resolve_path(cfg.paths.interim), out_dir)
+    summary = summarize(df)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    print(f"Jeu écrit dans {out_dir}")
+    return 0
+
+
+def _cmd_data_prepare_segmentation(args: argparse.Namespace) -> int:
+    from agridrone.core.config import load_experiment, load_yaml
+    from agridrone.core.paths import project_root, resolve_path
+    from agridrone.data.segmentation import SegmentationDataConfig, prepare_segmentation
+
+    cfg = load_experiment(resolve_path(args.config))
+    data_cfg = SegmentationDataConfig.model_validate(load_yaml(resolve_path(args.data_config)))
+    out = resolve_path(cfg.paths.processed) / "segmentation"
+    results = prepare_segmentation(data_cfg, resolve_path(cfg.paths.interim), out, project_root())
+    for name, df in results.items():
+        print(f"{name:40s} {len(df):6d} éléments  {df['split'].value_counts().to_dict()}")
+    print(f"Jeux écrits dans {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agridrone", description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -112,17 +231,50 @@ def build_parser() -> argparse.ArgumentParser:
         p.set_defaults(func=func)
         if name == "smoke":
             p.add_argument("--steps", type=_positive_int, default=20)
+
+    p_data = sub.add_parser("data", help="sources de données (chantier 2)")
+    data_sub = p_data.add_subparsers(dest="data_command", required=True)
+    for name, func, help_ in (
+        ("list", _cmd_data_list, "sources du registre"),
+        ("download", _cmd_data_download, "télécharge, vérifie et extrait"),
+        ("verify", _cmd_data_verify, "revérifie les fichiers téléchargés"),
+    ):
+        p = data_sub.add_parser(name, help=help_)
+        p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
+        p.add_argument("--registry", default=DEFAULT_REGISTRY, help="registre des sources")
+        p.set_defaults(func=func)
+        if name == "download":
+            p.add_argument("ids", nargs="*", help="sources (défaut : toutes les retenues)")
+            p.add_argument("--include-candidates", action="store_true")
+            p.add_argument("--no-extract", action="store_true", help="ne pas extraire les archives")
+    p = data_sub.add_parser("prepare-classification", help="jeu « dossiers par classe »")
+    p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
+    p.add_argument("--data-config", default="configs/data/classification.yaml")
+    p.set_defaults(func=_cmd_data_prepare_classification)
+    p = data_sub.add_parser("prepare-segmentation", help="jeux multispectraux N bandes + tuilage")
+    p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
+    p.add_argument("--data-config", default="configs/data/segmentation.yaml")
+    p.set_defaults(func=_cmd_data_prepare_segmentation)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    import requests
+
     from agridrone.core.config import ConfigError
     from agridrone.core.device import DeviceUnavailableError
+    from agridrone.data.sources import IntegrityError, UnsafeArchiveError
 
     args = build_parser().parse_args(argv)
     try:
         code: int = args.func(args)
-    except (ConfigError, DeviceUnavailableError) as exc:
+    except (
+        ConfigError,
+        DeviceUnavailableError,
+        IntegrityError,
+        UnsafeArchiveError,
+        requests.RequestException,
+    ) as exc:
         print(f"Erreur : {exc}", file=sys.stderr)
         return 2
     return code

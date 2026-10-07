@@ -1,0 +1,35 @@
+# Jeux de segmentation multispectrale (chantier 2 → chantier 5).
+# Préparation : uv run agridrone data prepare-segmentation
+#
+# Rappel (inventaire §7.2) : aucun jeu public ouvert de maladies du blé en
+# multispectral. Ces jeux servent à éprouver la chaîne N bandes et la comparaison
+# « U-Net contre indices » sur une vraie vérité terrain (WeedsGalore), et à tester
+# lecture et tuilage d'orthomosaïques réelles (maïs).
+
+weedsgalore:
+  source: weedsgalore
+  root: "weedsgalore-dataset/weedsgalore-dataset"
+  sensor: configs/sensors/dji_p4_multispectral.yaml
+  # Tâche à 3 classes de l'article (fond, culture, adventice) : les 4 espèces
+  # d'adventices (valeurs 2 à 5) sont regroupées.
+  classes: [background, crop, weed]
+  class_map: {0: 0, 1: 1, 2: 2, 3: 2, 4: 2, 5: 2}
+
+maize_stress_rust_tr:
+  source: maize_stress_rust_tr
+  # Patchs 224×224 déjà découpés par les auteurs (5 classes, pseudo-étiquettes).
+  patch_set: "02_processed_patches/mixed_water_rust_2025"
+  classes: [soil, low_stress, high_stress, healthy, rust]
+  class_map: {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
+  # Découpage spatial des patchs : blocs de 1024 px de chaque orthomosaïque.
+  patch_block: 1024
+  # Démonstration du tuilage sur de vraies orthomosaïques (GeoTIFF, ~1 cm/px).
+  orthomosaics:
+    - "01_orthomosaics/common_rust_2025/Processed_Orthomosaic.tif"
+    - "01_orthomosaics/water_stress_2025/positive_output.tif"
+  ortho_bands: [1, 2, 3, 4, 5]  # B, V, R, RE, PIR ; alpha (bande 6) exclu, validité par nodata
+  tile: 256
+  overlap: 64
+  block: 1024
+  fractions: {train: 0.7, val: 0.15, test: 0.15}
+  seed: 0

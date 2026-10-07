@@ -1,0 +1,13 @@
+# MicaSense RedEdge, ordre de stockage des bandes 1 à 5.
+# Source : Zhang et al. 2021, Ir-UNet, Remote Sensing 13:3892, tableau 1
+# (longueur d'onde centrale / largeur de bande).
+name: micasense_rededge
+reflectance: true
+scale: 1.0
+source: "Ir-UNet (Remote Sens. 2021), tableau 1"
+bands:
+  - {name: blue, center_nm: 475, fwhm_nm: 20}
+  - {name: green, center_nm: 560, fwhm_nm: 20}
+  - {name: red, center_nm: 668, fwhm_nm: 10}
+  - {name: nir, center_nm: 840, fwhm_nm: 40}
+  - {name: red_edge, center_nm: 717, fwhm_nm: 10}

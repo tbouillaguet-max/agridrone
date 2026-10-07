@@ -1,0 +1,174 @@
+# Registre des sources de données (chantier 2).
+#
+# Chaque source indique sa licence, la preuve de vérification et l'attribution
+# à reproduire. Statuts :
+#   retained  : licence compatible avec un usage commercial, provenance établie ;
+#   candidate : licence permissive déclarée, provenance à confirmer (téléchargée
+#               seulement avec --include-candidates) ;
+#   excluded  : jamais téléchargée (gardée ici pour tracer la décision).
+# Le schéma refuse un statut `retained` avec une licence hors de la liste
+# autorisée (agridrone.data.sources.COMMERCIAL_LICENSES).
+#
+# Sommes de contrôle : celles publiées par le fournisseur (Zenodo : md5,
+# Mendeley : sha256) sont recopiées ici. Pour Kaggle et GFZ, qui n'en publient
+# pas, le premier téléchargement enregistre le sha256 dans sources.lock.yaml ;
+# les suivants sont vérifiés contre lui.
+
+sources:
+  # ------------------------------------------------------------------
+  # Chantier 4 : classification des maladies du blé (RVB)
+  # ------------------------------------------------------------------
+  jic_wheat_disease_999:
+    title: "Wheat disease images (small dataset), John Innes Centre"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "DataCite + API Zenodo, consultés le 2026-10-07"
+    attribution: >-
+      Long M., Hartley M., Morris R.J., Brown J.K.M. (2023). Classification of wheat
+      diseases using deep learning networks with field and glasshouse images.
+      Plant Pathology. doi:10.1111/ppa.13684 ; données doi:10.5281/zenodo.7573133
+    provider: zenodo
+    homepage: https://zenodo.org/records/7573133
+    files:
+      - name: "Long 2023 Plant Path 999 photos.zip"
+        url: "https://zenodo.org/api/records/7573133/files/Long%202023%20Plant%20Path%20999%20photos.zip/content"
+        size: 1029380819
+        md5: 1f8a7c660c2da137b957fb4edee3dd7d
+
+  ethiopia_wheat_leaf:
+    title: "Wheat Leaf Dataset (Holeta, Éthiopie)"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "DataCite + API publique Mendeley, consultées le 2026-10-07"
+    attribution: >-
+      Getachew H. (2021). Wheat Leaf Dataset. Mendeley Data, V1.
+      doi:10.17632/wgd66f8n6h.1
+    provider: mendeley
+    homepage: https://data.mendeley.com/datasets/wgd66f8n6h/1
+    files:
+      - name: wheat_leaf.rar
+        url: "https://data.mendeley.com/public-files/datasets/wgd66f8n6h/files/4ec9266d-d7c1-4fd5-85c9-e5624c09a847/file_downloaded"
+        size: 1511923897
+        sha256: 23653dd88f9f900315a9a0c88a163c891b3bdd00cc89b36d98cc5b3fcc1d7e94
+
+  kaggle_yellowrust_2223:
+    title: "YellowRust_22-23 (Kaggle, shantkumar)"
+    task: classification
+    status: candidate
+    license: CDLA-Permissive-1.0
+    license_evidence: "API Kaggle (licence déclarée par le déposant), consultée le 2026-10-07"
+    attribution: "Shant Kumar (2025). YellowRust_22-23. Kaggle, version 1."
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/shantkumar/yellowrust-2223-dataset
+    notes: >-
+      Pas de description de l'auteur. EXIF cohérents avec une collecte originale :
+      10 000 images 256×256, 2 smartphones (realme narzo 50A, Huawei COR-AL00),
+      26 jours de prise de vue (janv.–mars 2022 et 2023). Utilisé seulement comme
+      test inter-sources tant que la provenance n'est pas confirmée par l'auteur.
+    files:
+      - name: yellowrust-2223-dataset.zip
+        url: "https://www.kaggle.com/api/v1/datasets/download/shantkumar/yellowrust-2223-dataset?datasetVersionNumber=1"
+        size: null
+
+  kaggle_wheat_leaf_dl:
+    title: "Wheat Leaf Disease Dataset for DL Classification (Kaggle, yilikalfikru)"
+    task: classification
+    status: excluded
+    license: LicenseRef-compilation-unverified
+    license_evidence: >-
+      CC BY 4.0 déclaré sur Kaggle, mais contenu inspecté le 2026-10-07 : compilation
+      d'autres jeux (images d'Éthiopie, de Yellow-Rust-19 dont la licence est
+      « Unknown », noms au format John Innes) et d'images web (.jfif, .webp,
+      vignettes 275×183, photos Nikon de 2006)
+    attribution: "Yilikal Fikru (2026). Wheat Leaf Disease Dataset for DL Classification. Kaggle, version 2."
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/yilikalfikru/wheat-leaf-disease-dataset-for-dl-classification
+    notes: "Exclu : la licence déclarée ne peut pas couvrir des images reprises d'autres sources."
+    files: []
+
+  # ------------------------------------------------------------------
+  # Chantier 5 : chaîne multispectrale N bandes
+  # ------------------------------------------------------------------
+  weedsgalore:
+    title: "WeedsGalore, maïs / adventices, DJI P4 Multispectral (GFZ Potsdam)"
+    task: segmentation
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "README du portail GFZ et du dépôt GitHub, lus le 2026-10-07"
+    attribution: >-
+      Celikkan E., Kunzmann T., Yeskaliyev Y., Itzerott S., Klein N., Herold M. (2025).
+      WeedsGalore: A Multispectral and Multitemporal UAV-based Dataset for Crop and Weed
+      Segmentation in Agricultural Maize Fields. WACV 2025. arXiv:2502.13103
+    provider: gfz
+    homepage: https://doidata.gfz.de/weedsgalore_e_celikkan_2024/
+    files:
+      - name: weedsgalore-dataset.zip
+        url: https://doidata.gfz.de/weedsgalore_e_celikkan_2024/weedsgalore-dataset.zip
+        size: 336989804
+
+  maize_stress_rust_tr:
+    title: "UAV multispectral maize, water stress & common rust 2025 (Turquie)"
+    task: segmentation
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "DataCite + API Zenodo, consultés le 2026-10-07"
+    attribution: >-
+      Suiçmez Ç., Yilmaz C., Kahraman H.T. (2026). A Multi-Head UNet++ Framework with
+      Fractional Differential Output Refinement for UAV Multispectral Crop Stress Mapping.
+      Sensors 26(10):3228 ; données doi:10.5281/zenodo.22062459 (v2.1)
+    provider: zenodo
+    homepage: https://zenodo.org/records/22062459
+    notes: >-
+      Masques = pseudo-étiquettes dérivées d'indices de végétation : à n'utiliser que
+      pour tester la lecture et le tuilage, jamais pour comparer U-Net et indices.
+    files:
+      - name: 00_README_CITATION_LICENSE.zip
+        url: https://zenodo.org/api/records/22062459/files/00_README_CITATION_LICENSE.zip/content
+        size: 3129
+        md5: b6405f8bc050b9c589a01070c53dd229
+      - name: 01_orthomosaics.zip
+        url: https://zenodo.org/api/records/22062459/files/01_orthomosaics.zip/content
+        size: 815707227
+        md5: e4afdddc9c86d1bed7a1753da7646f0f
+      - name: 02_processed_patches.zip
+        url: https://zenodo.org/api/records/22062459/files/02_processed_patches.zip/content
+        size: 571284472
+        md5: 851d8b47bc2e941746db9602c72d1cb7
+      - name: 03_metadata.zip
+        url: https://zenodo.org/api/records/22062459/files/03_metadata.zip/content
+        size: 5425
+        md5: 24542b23e421142c156bf90c0182dc8c
+
+  # ------------------------------------------------------------------
+  # Exclus (décision tracée, jamais téléchargés)
+  # ------------------------------------------------------------------
+  wfd2020:
+    title: "Wheat Fungi Diseases (WFD2020)"
+    task: classification
+    status: excluded
+    license: LicenseRef-non-commercial
+    license_evidence: "Conditions du site wfd.sysbio.ru, lues le 2026-10-07"
+    attribution: "Genaev et al. (2021), Plants 10(8):1500"
+    provider: url
+    homepage: https://wfd.sysbio.ru/
+    notes: "Usage commercial interdit, y compris pour tester un système commercial."
+    files: []
+
+  kaggle_wheat_plant_diseases:
+    title: "Wheat Plant Diseases (Kaggle, kushagra3204) et ses copies"
+    task: classification
+    status: excluded
+    license: LicenseRef-provenance-unknown
+    license_evidence: "API Kaggle : CC0 déclaré sans source ; consultée le 2026-10-07"
+    attribution: "—"
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/kushagra3204/wheat-plant-diseases
+    notes: >-
+      Compilation sans provenance (14 154 images, 15 classes) ; recopiée sous d'autres
+      licences (urszulakostuch, freedomfighter1290…). Même problème pour
+      devendrababu9666 (images brutes de Yellow-Rust-19, licence d'origine « Unknown »,
+      republiées sous MIT) et le jeu « WLD » (jayaprakashpondy, srkuhin), qui contient
+      les images John Innes sous une autre licence.
+    files: []

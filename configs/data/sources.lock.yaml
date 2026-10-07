@@ -1,0 +1,8 @@
+comment: 'Généré par `agridrone data download` : ne pas modifier à la main.'
+files:
+  kaggle_yellowrust_2223/yellowrust-2223-dataset.zip:
+    sha256: 6f2f971f451bedbfb9879e7e8bc763f562571004a1ab32db7d6fc9dfd7ad995a
+    size: 289699022
+  weedsgalore/weedsgalore-dataset.zip:
+    sha256: 5d8395c274d990cd8fbfa728445f65c398be2b5d777bd5145eb9ae5ca4d9b68c
+    size: 336989804

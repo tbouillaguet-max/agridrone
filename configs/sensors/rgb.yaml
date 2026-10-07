@@ -1,0 +1,10 @@
+# Caméra RVB standard (images 8 bits). Pas de longueurs d'onde : filtres de Bayer
+# non spécifiés.
+name: rgb
+reflectance: false
+scale: 1.0
+source: ""
+bands:
+  - {name: red}
+  - {name: green}
+  - {name: blue}
