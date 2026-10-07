@@ -310,6 +310,7 @@ def run_evaluation(
         "splits": {},
     }
     unet_name = f"U-Net {len(ckpt.bands)} bandes"
+    index_name = cfg.eval.baselines[0] if cfg.eval.baselines else ""
     for split in splits:
         start = time.perf_counter()
         cm, predictions = _predict_split(
@@ -330,7 +331,7 @@ def run_evaluation(
                 baseline_masks[name][sample] = pred
         for name, baseline in baselines.items():
             scores = _scores(baseline_cms[name], data, data.classes)
-            if baseline.method != "multi_otsu":
+            if len(baseline.thresholds) == 1:
                 # Deux intervalles : seule la tâche fond / végétation a un sens.
                 del scores["classes"]
             split_result["baselines"][name] = scores
@@ -345,7 +346,9 @@ def run_evaluation(
             "iou"
         ]
         bars: dict[str, dict[str, float | None]] = {unet_name: unet_iou}
-        for name, scores in split_result["baselines"].items():
+        # Figure lisible : les baselines du premier indice seulement (toutes dans metrics.json).
+        shown = {n: v for n, v in split_result["baselines"].items() if n.startswith(index_name)}
+        for name, scores in shown.items():
             fv = scores["fond_vegetation"]["per_class"]
             values: dict[str, float | None] = dict.fromkeys(names)
             if "classes" in scores:
@@ -363,7 +366,7 @@ def run_evaluation(
             )
         # Figure : exemples (fausses couleurs, vérité, U-Net, meilleure baseline à 3 classes).
         if cfg.eval.examples:
-            three_class = [n for n, b in baselines.items() if b.method == "multi_otsu"]
+            three_class = [n for n, b in baselines.items() if b.method == "supervised_3_classes"]
             rows = []
             for sample in data.samples(split)[: cfg.eval.examples]:
                 image, mask = data.load(sample)

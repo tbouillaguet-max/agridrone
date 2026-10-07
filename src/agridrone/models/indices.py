@@ -154,6 +154,35 @@ def best_supervised_threshold(
     return float(_bin_edges()[k]), float(iou[k])
 
 
+def best_supervised_thresholds(
+    hists: np.ndarray, labels: tuple[int, int, int]
+) -> tuple[tuple[float, float], float]:
+    """Deux seuils maximisant le mIoU des trois classes ``labels`` (une par intervalle,
+    dans l'ordre croissant de l'indice) sur des histogrammes par classe (K, HIST_BINS).
+
+    C'est la meilleure performance possible d'un découpage de l'indice en trois
+    intervalles. Renvoie ((t1, t2), mIoU d'entraînement).
+    """
+    n = hists.shape[1]
+    cum = np.concatenate([np.zeros((hists.shape[0], 1)), np.cumsum(hists, axis=1)], axis=1)
+    total = cum[:, -1]
+    everything = cum.sum(axis=0)  # pixels de toutes classes sous chaque bord
+    i = np.arange(1, n - 1)[:, None]  # intervalles [0, i) | [i, j) | [j, n)
+    j = np.arange(2, n)[None, :]
+    l0, l1, l2 = labels
+    tp = [cum[l0, i], cum[l1, j] - cum[l1, i], total[l2] - cum[l2, j]]
+    predicted = [everything[i], everything[j] - everything[i], everything[-1] - everything[j]]
+    ious = []
+    for k, label in enumerate(labels):
+        union = total[label] + predicted[k] - tp[k]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ious.append(np.where(union > 0, tp[k] / union, 0.0))
+    miou = np.where(j > i, sum(ious) / 3, -np.inf)
+    a, b = np.unravel_index(int(np.argmax(miou)), miou.shape)
+    edges = _bin_edges()
+    return (float(edges[int(i[a, 0])]), float(edges[int(j[0, b])])), float(miou[a, b])
+
+
 def accumulate_histograms(
     samples: Iterable[tuple[np.ndarray, np.ndarray]],
     bands: Sequence[str],
@@ -178,7 +207,10 @@ def fit_index_baselines(
     * ``<indice>_otsu`` : fond / végétation (classes ``vegetation`` fusionnées) ;
     * ``<indice>_seuil_supervise`` : idem avec le seuil qui maximise l'IoU ;
     * ``<indice>_multi_otsu`` (si deux classes de végétation) : fond et deux classes,
-      l'ordre des deux classes de végétation étant choisi sur l'entraînement.
+      l'ordre des deux classes de végétation étant choisi sur l'entraînement ;
+    * ``<indice>_2_seuils_supervises`` (idem) : les deux seuils et l'ordre qui
+      maximisent le mIoU des trois classes, la meilleure performance possible d'un
+      indice seul sur cette tâche.
 
     Les baselines binaires renvoient la première classe de ``vegetation`` pour tout
     pixel de végétation : elles s'évaluent sur la tâche fusionnée fond / végétation.
@@ -214,4 +246,9 @@ def fit_index_baselines(
         options = [(background, a, b), (background, b, a)]
         labels = max(options, key=hits)
         baselines[f"{index}_multi_otsu"] = IndexBaseline(index, (t1, t2), labels, "multi_otsu")
+        fitted = {order: best_supervised_thresholds(hists, order) for order in options}
+        order = max(fitted, key=lambda o: fitted[o][1])
+        baselines[f"{index}_2_seuils_supervises"] = IndexBaseline(
+            index, fitted[order][0], order, "supervised_3_classes"
+        )
     return baselines

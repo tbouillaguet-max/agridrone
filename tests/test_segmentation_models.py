@@ -17,6 +17,7 @@ from agridrone.eval.segmentation import (
 from agridrone.models.indices import (
     IndexBaseline,
     best_supervised_threshold,
+    best_supervised_thresholds,
     compute_index,
     fit_index_baselines,
     index_histogram,
@@ -81,9 +82,31 @@ def test_supervised_threshold_and_fitted_baselines() -> None:
     fitted = fit_index_baselines(
         np.stack([soil, crop, weed]), "ndvi", background=0, vegetation=[1, 2]
     )
-    assert set(fitted) == {"ndvi_otsu", "ndvi_seuil_supervise", "ndvi_multi_otsu"}
+    assert set(fitted) == {
+        "ndvi_otsu",
+        "ndvi_seuil_supervise",
+        "ndvi_multi_otsu",
+        "ndvi_2_seuils_supervises",
+    }
     multi = fitted["ndvi_multi_otsu"]
     assert multi.labels == (0, 2, 1)  # l'adventice (NDVI plus bas) avant la culture
+    best = fitted["ndvi_2_seuils_supervises"]
+    assert best.labels == (0, 2, 1)
+    t1, t2 = best.thresholds
+    assert -0.15 < t1 < 0.15 and 0.35 < t2 < 0.5  # dans les creux entre les trois modes
+
+
+def test_supervised_thresholds_beat_multi_otsu_on_unbalanced_classes() -> None:
+    # 93 % de sol : multi-Otsu coupe le mode du sol, les seuils supervisés non.
+    rng = np.random.default_rng(4)
+    soil = index_histogram(rng.normal(-0.1, 0.08, 93_000))
+    crop = index_histogram(rng.normal(0.4, 0.06, 2_500))
+    weed = index_histogram(rng.normal(0.25, 0.06, 4_500))
+    hists = np.stack([soil, crop, weed])
+    (t1, _), miou = best_supervised_thresholds(hists, (0, 2, 1))
+    assert t1 > 0.0 and miou > 0.6
+    m1, _ = multi_otsu_thresholds(hists.sum(axis=0))
+    assert m1 < t1
 
 
 def test_pixel_metrics_ignore_and_merge() -> None:

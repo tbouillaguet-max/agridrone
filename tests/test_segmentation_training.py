@@ -138,12 +138,9 @@ def test_train_unet_with_index_baselines(tmp_path: Path) -> None:
     assert metrics["bands"] == ["red", "nir", "red_edge"]
     test = metrics["splits"]["test"]
     assert set(test["baselines"]) == {
-        "ndvi_otsu",
-        "ndvi_seuil_supervise",
-        "ndvi_multi_otsu",
-        "ndre_otsu",
-        "ndre_seuil_supervise",
-        "ndre_multi_otsu",
+        f"{index}_{kind}"
+        for index in ("ndvi", "ndre")
+        for kind in ("otsu", "seuil_supervise", "multi_otsu", "2_seuils_supervises")
     }
     # Données synthétiques bien séparées par le NDVI : la baseline supervisée y excelle.
     veg = test["baselines"]["ndvi_seuil_supervise"]["fond_vegetation"]["per_class"]["végétation"]
