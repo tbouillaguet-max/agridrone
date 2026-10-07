@@ -108,8 +108,8 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : 
 | 2 | Pipeline de données : téléchargement vérifié, conversion, découpage par groupes, tuilage, augmentations, exploration | `agridrone data list\|download\|verify\|prepare-classification\|prepare-segmentation` ; [notebook](notebooks/01_exploration_donnees.ipynb) ; [reports/data_pipeline.md](reports/data_pipeline.md) | fait |
 | 3 | Baseline YOLO11n/s pucerons (RVB, petits objets, SAHI) | — | **reporté** (pucerons mis de côté) |
 | 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny), sortie « incertain », tests inter-sources | `agridrone train -c configs/classification/<modèle>.yaml`, `agridrone evaluate --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 1 | fait |
-| 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu) | `agridrone train -c configs/segmentation/unet_5bandes.yaml` | aucun jeu public pour le blé : chaîne validée sur WeedsGalore (inventaire, §7.2) |
-| 6 | Rapport des baselines, export ONNX, temps d'inférence | `agridrone export --run <run>` | code prêt |
+| 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu), ablation RVB | `agridrone train -c configs/segmentation/unet_5bandes.yaml` ; [reports/baseline_results.md](reports/baseline_results.md) § 2 | fait (aucun jeu public pour le blé : chaîne validée sur WeedsGalore, inventaire § 7.2) |
+| 6 | Rapport des baselines, export ONNX, temps d'inférence | `agridrone export --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 3 et 4 | fait (temps Jetson à mesurer sur la cible) |
 
 Données, de bout en bout (détails dans [reports/data_pipeline.md](reports/data_pipeline.md)) :
 
@@ -127,6 +127,8 @@ Entraînement et évaluation (chantiers 4 et suivants) : la tâche est lue dans 
 uv run agridrone train -c configs/classification/efficientnet_b0.yaml num_workers=2
 uv run agridrone train -c configs/classification/convnext_tiny.yaml num_workers=2
 uv run agridrone evaluate --run runs/classification/<run> eval.target_coverage=0.8
+uv run agridrone train -c configs/segmentation/unet_5bandes.yaml num_workers=2
+uv run agridrone export --run runs/segmentation/<run>     # ONNX + vérification + latences
 ```
 
 Chaque run écrit dans `runs/<tâche>/<date>_<nom>_<empreinte>/` : `best.pt` (checkpoint
@@ -148,6 +150,11 @@ MLflow.
   MIT. Son successeur `albumentationsx` est sous AGPL-3.0.
 - **Données** : la licence de chaque jeu de données (usage commercial ou non) est
   vérifiée dans [reports/data_inventory.md](reports/data_inventory.md).
+- **Poids pré-entraînés** (timm : EfficientNet-B0, ConvNeXt-Tiny, ResNet-18) : publiés sous
+  Apache-2.0. Ils sont appris sur ImageNet, dont les images ne sont accessibles que pour
+  un usage non commercial. Le statut juridique des poids qui en dérivent n'est pas
+  tranché : à faire valider avant commercialisation.
+- **Export** : onnx (Apache-2.0), onnxscript et onnxruntime (MIT).
 
 ## Qualité
 

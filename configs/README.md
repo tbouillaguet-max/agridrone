@@ -3,12 +3,15 @@
 Une expérience = un fichier YAML. Les configs de tâche héritent de `base.yaml` :
 
 ```yaml
-# configs/<tâche>/<expérience>.yaml
-_base_: ../base.yaml          # chemin relatif à ce fichier (ou liste de chemins)
-task: detection
-name: yolo11n_aphids_1280
-seed: 0
+# configs/classification/convnext_tiny.yaml
+_base_: base.yaml             # chemin relatif à ce fichier (ou liste de chemins)
+name: convnext_tiny
+model:
+  arch: convnext_tiny.fb_in22k_ft_in1k
 ```
+
+`task` (ici `classification`, hérité de `classification/base.yaml`) choisit le schéma
+de validation et le lanceur : `uv run agridrone train -c <config>`.
 
 - **Fusion** : les sections (dictionnaires) sont fusionnées récursivement ; les
   listes et valeurs simples sont remplacées.
@@ -23,13 +26,13 @@ seed: 0
   git et les versions des paquets (`environment.json`). Ces fichiers sont aussi
   attachés au run MLflow.
 
-Arborescence prévue (créée au fil des chantiers) :
+Arborescence :
 
 | Dossier | Contenu | Chantier |
 |---|---|---|
 | `base.yaml` | graine, device, chemins, MLflow | 0 |
 | `data/` | sources retenues, découpages, tuilage | 2 |
 | `sensors/` | définition des bandes par capteur (RVB, multispectral N bandes) | 2 |
-| `detection/` | YOLO11 pucerons | 3 |
-| `classification/` | classifieur maladies du blé | 4 |
-| `segmentation/` | U-Net multispectral | 5 |
+| `detection/` | YOLO11 pucerons (à créer : chantier reporté) | 3 |
+| `classification/` | classifieur maladies du blé : `base.yaml` (données, règle de décision), `efficientnet_b0.yaml`, `convnext_tiny.yaml` | 4 |
+| `segmentation/` | U-Net N bandes et baselines par indices : `base.yaml`, `unet_5bandes.yaml`, `unet_rvb.yaml` | 5 |

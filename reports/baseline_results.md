@@ -8,6 +8,22 @@ produits à partir des fichiers `metrics.json` des runs, sans recopie à la main
 
 Machine : CPU à 4 cœurs (Xeon avec instructions AMX), sans GPU.
 
+## En bref
+
+- **Classifieur de maladies (§ 1)** : ConvNeXt-Tiny atteint 95 % d'exactitude sur le test
+  John Innes. Sur d'autres sources, il déclare malades la plupart des feuilles saines.
+  Les jeux publics ne suffisent pas : il faut des images drone étiquetées de vos
+  parcelles.
+- **Segmentation multispectrale (§ 2)** : un U-Net 5 bandes atteint 85,5 de mIoU sur
+  WeedsGalore (culture / adventices). C'est au moins le niveau publié, et bien au-dessus
+  des meilleurs seuils NDVI (53,5). Le red-edge et le proche infrarouge apportent
+  +3 points sur le RVB seul. Le NDRE échoue sur des comptes non calibrés : la
+  calibration radiométrique est un prérequis.
+- **Export (§ 3)** : modèles ONNX vérifiés (écart inférieur à 10⁻⁵ avec PyTorch).
+  - Sur le CPU de développement : 9 ms par image pour EfficientNet-B0, 35 ms pour
+    ConvNeXt-Tiny, 40 tuiles de 256 px par seconde pour le U-Net.
+  - Les temps Jetson restent à mesurer sur la cible (procédure fournie).
+
 ## 1. Classifieur de maladies du blé (chantier 4)
 
 ### 1.1 Protocole
@@ -18,7 +34,7 @@ Machine : CPU à 4 cœurs (Xeon avec instructions AMX), sans GPU.
 | **Validation** | John Innes, 150 images : choix du modèle (F1 macro) et calibration des seuils |
 | **Test intra-source** | John Innes, 150 images (groupes disjoints de l'entraînement, voir [`data_pipeline.md`](data_pipeline.md) § 3) |
 | **Tests inter-sources** | Éthiopie, 405 images (sain, rouille jaune, septoriose) ; YellowRust_22-23, 9 802 images (sain, rouille jaune). Jamais vus, ni à l'entraînement ni à la calibration |
-| **Modèles** | EfficientNet-B0 (`efficientnet_b0.ra_in1k`, 5,3 M paramètres, pré-entraîné sur ImageNet-1k) et ConvNeXt-Tiny (`convnext_tiny.fb_in22k_ft_in1k`, 28 M, pré-entraîné sur ImageNet-22k). Poids sous Apache-2.0, tête neuve à 5 sorties, tout le réseau affiné |
+| **Modèles** | EfficientNet-B0 (`efficientnet_b0.ra_in1k`, 4,0 M paramètres avec la tête à 5 classes, pré-entraîné sur ImageNet-1k) et ConvNeXt-Tiny (`convnext_tiny.fb_in22k_ft_in1k`, 27,8 M, pré-entraîné sur ImageNet-22k). Poids sous Apache-2.0, tête neuve à 5 sorties, tout le réseau affiné |
 | **Entraînement** | 224 px ; AdamW ; une époque de montée puis décroissance en cosinus ; 25 époques au plus, arrêt après 8 sans progrès ; perte pondérée (classes équilibrées) ; augmentations « drone » ([`data_pipeline.md`](data_pipeline.md) § 4). EfficientNet en float32, ConvNeXt en bf16 |
 | **Durée** | EfficientNet-B0 : 25 époques, 32 min (67 s par époque). ConvNeXt-Tiny : arrêt à l'époque 23, 34 min (80 s par époque) |
 | **Évaluation** | plus petit côté ramené à 224 px, puis recadrage central ; float32 |
@@ -110,8 +126,8 @@ mieux, avec 70 % d'exactitude en Éthiopie contre 48 %, et sa confiance est mieu
 calibrée.
 
 L'écart vient probablement de son pré-entraînement sur ImageNet-22k (14 millions
-d'images), plus général qu'ImageNet-1k, et de sa taille. Il coûte 5 fois plus de
-paramètres ; son temps d'inférence est mesuré au § 3.
+d'images), plus général qu'ImageNet-1k, et de sa taille. Il a 7 fois plus de
+paramètres et demande 12 fois plus de calcul ; son temps d'inférence est mesuré au § 3.
 
 **Hors domaine, les deux modèles échouent sur les feuilles saines.** Ils ont appris ce
 qu'est un *couvert sain photographié par John Innes*, pas l'absence de symptômes. Une
@@ -199,8 +215,272 @@ calculée à partir des prédictions enregistrées (`eval/<ensemble>/predictions
 
 ## 2. Segmentation multispectrale (chantier 5)
 
-_En cours._
+### 2.1 Pourquoi WeedsGalore, et ce que cela valide
+
+Aucun jeu public ouvert ne fournit d'images multispectrales de blé avec des zones malades
+étiquetées au pixel (inventaire, § 7.2). La chaîne N bandes est donc validée sur
+**WeedsGalore** (Celikkan et al., WACV 2025), la tâche ouverte la plus proche :
+
+- **Capteur** : DJI P4 Multispectral, 5 bandes (B, V, R, RE, PIR), un capteur
+  agricole courant.
+- **Prise de vue** : maïs, vol à 5 m, soit 2,5 mm par pixel.
+- **Masques** : annotations manuelles au pixel, en 3 classes (fond, culture,
+  adventice).
+- **Découpage officiel spatial** : 8, 2 et 2 parcelles. Une localisation n'apparaît
+  jamais dans deux ensembles.
+
+Ce chantier établit trois choses pour le projet :
+
+- le code est générique en nombre de bandes ;
+- on sait comparer un réseau à des seuils d'indices sur une vraie vérité terrain ;
+- on mesure ce qu'apportent le red-edge et le proche infrarouge par rapport au RVB.
+
+Il ne dit **rien** de la détection de maladies du blé : c'est la même chaîne, sur une
+autre tâche.
+
+### 2.2 Protocole
+
+- **Données** :
+  - 104 images d'entraînement, 26 de validation et 26 de test, de 600×600 px chacune ;
+  - le sol occupe 93 % des pixels, la culture 2 %, les adventices 4 % ;
+  - valeurs = comptes bruts 16 bits divisés par 65 535 (non calibrés) ;
+  - normalisation z-score par bande, avec les statistiques de l'ensemble d'entraînement
+    (`band_stats_train.json`).
+- **U-Net** :
+  - encodeur ResNet-18 (`tu-resnet18.a1_in1k`, poids ImageNet sous Apache-2.0), première
+    convolution adaptée au nombre de bandes ;
+  - recadrages aléatoires de 256 px, 4 par image et par époque ;
+  - augmentations qui préservent les rapports entre bandes ;
+  - perte entropie croisée + Dice, AdamW, entraînement en bf16 ;
+  - 40 époques au plus, modèle choisi sur le mIoU de validation ;
+  - inférence par tuiles de 256 px avec 64 px de chevauchement, comme sur une
+    orthomosaïque.
+- **Ablation** : le même U-Net sur les 3 bandes visibles seulement (R, V, B).
+- **Baselines par indices**, seuils estimés sur l'entraînement seulement :
+  - NDVI = (PIR − R) / (PIR + R) et NDRE = (PIR − RE) / (PIR + RE) ;
+  - un seuil, fond contre végétation : **Otsu** (non supervisé) ou **seuil supervisé**
+    (le meilleur possible pour l'IoU de la végétation) ;
+  - deux seuils, trois classes : **multi-Otsu**, ou **deux seuils supervisés** (les
+    meilleurs possibles pour le mIoU, ordre des classes compris). Ces derniers donnent
+    la meilleure performance qu'un indice seul puisse atteindre.
+- **Métriques** :
+  - IoU et F1 par classe et mIoU, calculés sur la matrice de confusion cumulée de tout
+    le test ;
+  - IoU de la tâche fusionnée fond / végétation, la seule que les méthodes à un seuil
+    savent traiter.
+
+### 2.3 Résultats (test, 26 images)
+
+En pourcentage.
+
+| Méthode | IoU fond | IoU culture | IoU adventice | mIoU | F1 culture | F1 adventice | IoU végétation |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| **U-Net 5 bandes** (B, V, R, RE, PIR) | 98,6 | 77,8 | 80,0 | **85,5** | 87,5 | 88,9 | 83,6 |
+| U-Net 3 bandes (R, V, B) | 98,1 | 73,2 | 75,4 | **82,3** | 84,5 | 86,0 | 78,6 |
+| NDVI, 2 seuils supervisés (+0,191 ; +0,414) | 97,4 | 26,9 | 36,3 | **53,5** | 42,4 | 53,2 | 71,3 |
+| NDVI, multi-Otsu (−0,094 ; +0,168) | 44,1 | 0,4 | 51,1 | **31,9** | 0,8 | 67,7 | 12,1 |
+| NDVI, seuil supervisé (+0,195) | 97,5 | — | — | — | — | — | 71,5 |
+| NDVI, Otsu (+0,090) | 93,9 | — | — | — | — | — | 53,7 |
+| NDRE, 2 seuils supervisés (+0,078 ; +0,109) | 88,4 | 3,3 | 6,6 | **32,8** | 6,3 | 12,4 | 10,3 |
+| NDRE, multi-Otsu (−0,055 ; +0,035) | 37,4 | 4,1 | 5,1 | **15,5** | 8,0 | 9,6 | 9,7 |
+| NDRE, seuil supervisé (+0,027) | 79,6 | — | — | — | — | — | 13,3 |
+| NDRE, Otsu (−0,016) | 61,1 | — | — | — | — | — | 12,4 |
+
+**Référence publiée** : Celikkan et al., WACV 2025, tableau 3, test, 3 classes. Chiffres
+vérifiés dans l'article.
+
+| Modèle | Entrée | IoU fond | IoU culture | IoU adventice | mIoU |
+|---|---|--:|--:|--:|--:|
+| DeepLabv3+ ResNet-50 | RVB | 97,97 | 67,93 | 72,08 | 79,33 |
+| DeepLabv3+ ResNet-50 | 5 bandes | 98,45 | 72,93 | 77,31 | 82,90 |
+| MaskFormer | RVB | 97,73 | 70,18 | 69,85 | 79,26 |
+| MaskFormer | 5 bandes | 97,99 | 69,49 | 73,33 | 80,27 |
+
+La comparaison reste indicative :
+
+- l'article ne précise pas comment l'IoU est agrégée sur le test (cumulée ou moyenne par
+  image) ;
+- les modèles diffèrent ;
+- chaque configuration n'a qu'un entraînement, de graine 42.
+
+![IoU par classe et par méthode (test)](figures/seg_iou_test.png)
+![Exemples de test : fausses couleurs, vérité terrain, U-Net 5 bandes, NDVI à deux seuils supervisés](figures/seg_exemples_test.jpg)
+
+### 2.4 Lecture
+
+**Le U-Net fait au moins aussi bien que les références publiées, sur CPU.** Il atteint
+85,5 de mIoU en 5 bandes et 82,3 en RVB. L'article publié rapporte 82,9 et 79,3 avec un
+DeepLabv3+ sur GPU, sous les réserves ci-dessus.
+
+La structure en U conserve les détails fins, ce qui compte pour les jeunes plants de
+quelques pixels. Chaque entraînement a pris 33 minutes sur 4 cœurs. Le modèle 5 bandes
+progressait encore à la 40e et dernière époque : un entraînement plus long l'améliorerait
+probablement.
+
+**Le red-edge et le proche infrarouge apportent +3,2 points de mIoU**, surtout sur les
+adventices (+4,6 points d'IoU). C'est cohérent avec l'article (+3,6 avec DeepLabv3+). Le
+gain est régulier d'une image à l'autre : le modèle 5 bandes fait mieux que le RVB sur
+24 images de test sur 26 en mIoU, et sur les 26 pour les adventices (test de Wilcoxon
+apparié, p < 10⁻⁶). La variabilité d'un entraînement à l'autre n'a pas été mesurée,
+faute de temps de calcul.
+
+**Les seuils d'indice séparent le sol de la végétation, pas la culture des adventices.**
+
+- **Fond contre végétation** : même le meilleur seuil NDVI n'atteint que 71,5 d'IoU de
+  végétation, contre 83,6 pour le U-Net.
+- **Trois classes** : les deux meilleurs seuils NDVI possibles plafonnent à 53,5 de
+  mIoU, contre 85,5. Les distributions de NDVI de la culture et des adventices se
+  chevauchent : médianes 0,39 et 0,29 sur 30 images d'entraînement.
+- **Multi-Otsu** : il échoue complètement, car avec 93 % de sol ses seuils découpent le
+  mode du sol lui-même.
+
+**Le NDRE ne fonctionne pas sur ces données, et c'est une question de calibration.**
+
+- Sur des comptes bruts non calibrés, le red-edge de la culture est presque au niveau
+  du proche infrarouge : médianes 0,57 et 0,60.
+- Le NDRE du sol (médiane −0,04) et celui de la végétation (+0,03) se recouvrent donc,
+  et aucun seuil ne les sépare.
+- Le NDVI survit parce que l'écart rouge / proche infrarouge est grand.
+
+Les seuils fixés sur un jeu ne valent pas pour un autre vol. Sur les images de début de
+saison, le NDVI du sol est plus élevé, et les seuils tirés de l'ensemble d'entraînement
+y étiquettent du sol en végétation (exemples ci-dessus). Le U-Net, lui, s'appuie sur la
+forme et le contexte.
+
+### 2.5 Conséquences pour le projet
+
+1. **La chaîne N bandes est prête.** Une fois vos données drone étiquetées, passer du
+   maïs au blé, et des adventices aux zones malades, demande seulement :
+   - de nouvelles classes ;
+   - les noms des bandes de votre capteur (`configs/sensors/`) ;
+   - un découpage par parcelle et par date.
+2. **Calibrer les images en réflectance** : panneau de calibration avant chaque vol et
+   capteur d'ensoleillement. Sans cela, les indices sont faussés (cas du NDRE ici), et ni
+   les seuils ni les modèles ne se transfèrent d'un vol à l'autre.
+3. **Le multispectral apporte un gain réel mais modéré** sur cette tâche (+3 points). Ce
+   gain est à confirmer pour la détection de maladies, où le red-edge est réputé plus
+   utile (stress précoce). Seules vos données le diront.
+4. **L'échelle compte.** Ici, 2,5 mm par pixel à 5 m de hauteur. Des foyers de maladie
+   de plusieurs mètres restent visibles plus haut, à 1 à 2 cm par pixel, ce qui
+   multiplie la surface couverte par vol (voir § 3).
+
+### 2.6 Reproduire
+
+```bash
+uv run agridrone data prepare-segmentation
+uv run agridrone train -c configs/segmentation/unet_5bandes.yaml num_workers=2
+uv run agridrone train -c configs/segmentation/unet_rvb.yaml num_workers=2
+uv run agridrone evaluate --run runs/segmentation/<run> --out runs/segmentation/<run>/eval-finale
+```
+
+| Modèle | Run | Commit | Empreinte de config | Durée |
+|---|---|---|---|---|
+| U-Net 5 bandes | `runs/segmentation/20261007-154938_unet_5bandes_2fa4bad9` | `73d9069` | `2fa4bad9…` | 40 époques, 33 min |
+| U-Net 3 bandes | `runs/segmentation/20261007-162356_unet_rvb_d5582a0b` | `73d9069` | `d5582a0b…` | 39 époques (arrêt anticipé), 32 min |
+
+Les baselines à deux seuils supervisés ont été ajoutées après ces entraînements (commit
+`f22a0e2`). Les tableaux viennent donc de la réévaluation `eval-finale`, dont les scores
+U-Net sont identiques à l'évaluation d'origine.
 
 ## 3. Export ONNX et temps d'inférence (chantier 6)
 
-_En cours._
+### 3.1 Export
+
+`uv run agridrone export --run <run>` écrit trois fichiers dans `<run>/export/` :
+
+- **`model.onnx`** : opset 18, exporteur `torch.export`.
+  - Le graphe inclut la normalisation par canal et le softmax : il prend des valeurs
+    dans [0, 1] et rend des probabilités.
+  - Le lot est dynamique. Pour le U-Net, la hauteur et la largeur sont libres, tant
+    qu'elles restent multiples de 32.
+- **`model.json`** : la fiche du modèle.
+  - L'entrée : bandes nommées dans l'ordre, plage, prétraitement.
+  - Les classes, et la règle de décision du classifieur (`tau`, `tau_sain`).
+  - Le tuilage conseillé pour le U-Net.
+- **`benchmark.json`** :
+  - l'écart entre ONNX Runtime et PyTorch ;
+  - les paramètres et les GFLOPs ;
+  - les latences.
+
+L'embarqué n'a ainsi ni statistique à recopier ni ordre de bandes à deviner.
+
+### 3.2 Temps d'inférence mesurés (CPU de développement)
+
+Mesures sur le CPU à 4 cœurs du développement, et **non sur un Jetson** : médiane de
+20 appels après 3 appels de chauffe, modèle seul (sans décodage des images).
+
+| Modèle | Paramètres | GFLOPs par entrée | ONNX | Écart max ONNX / PyTorch | Latence lot 1 : PyTorch fp32 | PyTorch bf16 | ONNX Runtime fp32 | Débit lot 8 : PyTorch fp32 | PyTorch bf16 | ONNX Runtime fp32 |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| EfficientNet-B0, 224 px | 4,0 M | 0,77 | 16,6 Mo | 2·10⁻⁶ | 20,8 ms | 42,5 ms | **8,9 ms** | 54 img/s | 87 img/s | **186 img/s** |
+| ConvNeXt-Tiny, 224 px | 27,8 M | 8,91 | 112,0 Mo | 3·10⁻⁷ | 54,5 ms | **35,1 ms** | 38,6 ms | 27 img/s | **64 img/s** | 30 img/s |
+| U-Net ResNet-18, 5 × 256 px | 14,3 M | 11,04 | 57,6 Mo | 3·10⁻⁶ | 57,2 ms | **35,1 ms** | 35,7 ms | 18 tuiles/s | **40 tuiles/s** | 28 tuiles/s |
+
+**Lecture.**
+
+- **L'export est fidèle** : les probabilités ONNX Runtime ne s'écartent de PyTorch que
+  de quelques millionièmes.
+- **EfficientNet-B0 est le plus léger.** Il demande 12 fois moins de calcul que
+  ConvNeXt-Tiny et tourne à 9 ms par image sous ONNX Runtime. Sur ce CPU, le bf16 ne
+  l'accélère pas : ses convolutions en profondeur profitent mal des instructions AMX.
+- **ConvNeXt-Tiny**, plus précis (§ 1), reste utilisable : 35 à 39 ms par image. Il
+  profite fortement du bf16.
+- **Segmentation par tuiles** : avec des tuiles de 256 px chevauchées de 64 px, le pas
+  est de 192 px. Une orthomosaïque d'un hectare demande donc :
+
+  | Résolution | Tuiles par hectare | Durée à 40 tuiles/s (bf16, ce CPU) |
+  |---|--:|--:|
+  | 1 cm par pixel | environ 2 700 | environ 1 minute |
+  | 2,5 mm par pixel (WeedsGalore) | environ 43 000 | environ 18 minutes |
+
+  Ce sont des estimations arithmétiques à partir du débit mesuré, sans les temps de
+  lecture et d'écriture. À très haute résolution, le traitement embarqué de parcelles
+  entières devient lourd ; le traitement au sol après le vol reste une option.
+
+### 3.3 Perspective Jetson (non mesurée)
+
+Aucun Jetson n'était disponible : **aucun chiffre Jetson n'est donné ici**. La procédure
+de mesure sur la cible est la suivante :
+
+```bash
+# Sur le Jetson (JetPack avec TensorRT) :
+trtexec --onnx=model.onnx --fp16 --shapes=input:1x3x224x224   # classifieur
+trtexec --onnx=model.onnx --fp16 --shapes=input:8x5x256x256   # U-Net, lot de 8 tuiles
+```
+
+Points à vérifier sur la cible :
+
+1. **Précision** : le passage en FP16 ou INT8 (calibration sur quelques centaines
+   d'images réelles) doit être revalidé avec les métriques de ce rapport. Il faut
+   notamment recalculer les seuils `tau` et `tau_sain`.
+2. **Entrées dynamiques** : TensorRT optimise pour des formes fixées (profils
+   d'optimisation). Fixer la taille des tuiles et des lots utilisés en vol.
+3. **Chaîne complète** : le décodage des images, le recalage des 5 bandes et la
+   calibration radiométrique coûtent souvent plus que le réseau lui-même.
+4. **Licences** : sur la cible, le détecteur YOLO (Ultralytics) relèverait de l'AGPL-3.0
+   ou d'une licence commerciale (voir le README). Les modèles de ce rapport n'ont pas
+   cette contrainte : code sous Apache-2.0 ou MIT, poids publiés sous Apache-2.0.
+
+   **Réserve** : ces poids ont été pré-entraînés sur ImageNet. Les conditions d'accès
+   aux images d'ImageNet sont non commerciales, et le statut juridique des poids qui en
+   dérivent n'est pas tranché. C'est à faire valider par un juriste avant la
+   commercialisation, comme pour tout produit fondé sur des modèles pré-entraînés.
+
+## 4. Prochaines étapes proposées
+
+1. **Collecte et annotation d'images drone de vos parcelles.** C'est le facteur limitant
+   des deux tâches.
+   - **Classification** : images RVB à basse altitude, plusieurs parcelles, dates et
+     stades, des images saines variées, et les maladies présentes en France (rouille
+     jaune, rouille brune, septoriose, oïdium).
+   - **Segmentation** : orthomosaïques multispectrales calibrées en réflectance, avec
+     des zones malades délimitées au sol, en relevés de terrain géoréférencés.
+   - **Découpage** par parcelle et par date dès la collecte.
+2. **Affiner les modèles de ce rapport sur ces données.** Mesurer le transfert avec le
+   même protocole : ratés **et** fausses alertes, règle « incertain », mIoU contre
+   indices.
+3. **Mesurer sur la cible embarquée** (Jetson ou autre), avec TensorRT FP16 : chaîne
+   complète, de la prise de vue à la décision.
+4. **Pucerons (chantier 3, reporté)** : la chaîne de détection reste à faire. Choisir le
+   détecteur en tenant compte de la licence (YOLO : AGPL-3.0 ; RF-DETR et D-FINE :
+   Apache-2.0).
+
