@@ -107,7 +107,7 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : 
 | 1 | Inventaire et vérification des données | — (livrables : [reports/data_inventory.md](reports/data_inventory.md), [reports/data_requests.md](reports/data_requests.md)) | fait |
 | 2 | Pipeline de données : téléchargement vérifié, conversion, découpage par groupes, tuilage, augmentations, exploration | `agridrone data list\|download\|verify\|prepare-classification\|prepare-segmentation` ; [notebook](notebooks/01_exploration_donnees.ipynb) ; [reports/data_pipeline.md](reports/data_pipeline.md) | fait |
 | 3 | Baseline YOLO11n/s pucerons (RVB, petits objets, SAHI) | — | **reporté** (pucerons mis de côté) |
-| 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny), sortie « incertain », tests inter-sources | `agridrone train -c configs/classification/<modèle>.yaml`, `agridrone evaluate --run <run>` | en cours |
+| 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny), sortie « incertain », tests inter-sources | `agridrone train -c configs/classification/<modèle>.yaml`, `agridrone evaluate --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 1 | fait |
 | 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu) | `agridrone train -c configs/segmentation/unet_5bandes.yaml` | aucun jeu public pour le blé : chaîne validée sur WeedsGalore (inventaire, §7.2) |
 | 6 | Rapport des baselines, export ONNX, temps d'inférence | `agridrone export --run <run>` | code prêt |
 
