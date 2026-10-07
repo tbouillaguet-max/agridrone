@@ -1,6 +1,7 @@
 # Inventaire et vérification des données (chantier 1)
 
-_Version 2, 7 octobre 2026, refaite après l'ouverture de l'accès internet. Statut : **en
+_Version 3, 7 octobre 2026 : version 2 (vérification à la source) + jeux Kaggle (§ 7.4) et
+corrections issues de l'inspection des fichiers téléchargés. Version 2 : statut **en
 attente de validation**. Aucun téléchargement en masse n'a été fait ; seuls des
 métadonnées, des README, des conditions d'utilisation et des articles ont été lus._
 
@@ -70,9 +71,9 @@ accès automatisés (403). Les licences de ces deux sources ont été vérifiée
 
 | Jeu | Tâche | Images | Annotations | Bandes | Résolution | Licence | Lien | Accessible | Drone 1–5 | Vérif. |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **John Innes Centre** (Long et al., *Plant Pathology* 2023) | classification : sain, rouille jaune, rouille brune, oïdium, septoriose | **999** (jeu complet de 19 172 sur demande) | étiquette par image | RVB | non vérifiée | **CC BY 4.0** | [zenodo 7573133](https://zenodo.org/records/7573133) (zip de 1,03 Go ; mêmes images en PNG : [7307816](https://zenodo.org/records/7307816)) | **oui**, public | 2 | ✅ |
+| **John Innes Centre** (Long et al., *Plant Pathology* 2023) | classification : sain, rouille jaune, rouille brune, oïdium, septoriose | **999** : septoriose 349, rouille jaune 239, oïdium 161, rouille brune 128, sain 122 (jeu complet de 19 172 sur demande) | étiquette par image (préfixe du nom de fichier) | RVB | non vérifiée | **CC BY 4.0** | [zenodo 7573133](https://zenodo.org/records/7573133) (zip de 1,03 Go ; mêmes images en PNG : [7307816](https://zenodo.org/records/7307816)) | **oui**, public | 2 | ✅ |
 | **ETH Zurich** (Anderegg & McDonald, *Scientific Data* 2026) | séquences quasi quotidiennes de feuilles malades au champ ; masques de symptômes | 12 520 (1 032 séries) | masques, métadonnées (traitements, météo, phénologie) | RVB | ~0,03 mm/px | **CC BY 4.0** | [article](https://www.nature.com/articles/s41597-026-06567-y) · [doi:10.3929/ethz-b-000739194](https://doi.org/10.3929/ethz-b-000739194) | **oui** (taille non vérifiée : dépôt ETH limité en débit) | 1 | ✅ |
-| **Feuilles de blé, Éthiopie** (Mendeley) | classification : sain, rouille jaune, septoriose | 407 (102 / 208 / 97) | dossiers par classe | RVB | non vérifiée (Canon EOS 5D Mark III) | **CC BY 4.0** | [doi:10.17632/wgd66f8n6h.1](https://doi.org/10.17632/wgd66f8n6h.1) | **oui**, public | 2 | ✅ licence · 🔎 détails |
+| **Feuilles de blé, Éthiopie** (Mendeley) | classification : sain, rouille jaune, septoriose | 407 (102 / 208 / 97) | dossiers par classe | RVB | 6000×4000 (Canon EOS Rebel T6i, EXIF ; une seule journée, 31/03/2021) | **CC BY 4.0** | [doi:10.17632/wgd66f8n6h.1](https://doi.org/10.17632/wgd66f8n6h.1) | **oui**, public | 2 | ✅ licence · 🔎 détails |
 | **NWRD** (NUST, *Sensors* 2023) | segmentation de la rouille jaune | 100 | masques binaires PNG | RVB | 6016×4000 et 4608×3456 | **CC BY 4.0** (données) ; MIT (code) | [zenodo 21672928](https://zenodo.org/records/21672928) (zip de 609 Mo) | **oui**, public | 2 | ✅ |
 | **GWHD 2021** (épis) | détection d'épis | 6 515 | 275 187 boîtes (CSV) | RVB | non vérifiée | **CC BY 4.0** | [zenodo 5092309](https://zenodo.org/records/5092309) (zip de 10,2 Go) | **oui**, public | 4 | ✅ licence · 🔎 volumes |
 | Rouille jaune vue par drone, RVB (2025) | foyers de rouille jaune sur images drone | 12 (6 + 6) | non vérifiées | RVB (drone) | non vérifiée | **CC BY 4.0** | [figshare 29435546](https://doi.org/10.6084/m9.figshare.29435546) (265 Mo) | **oui**, public | 4 | ✅ licence · 🔎 détails |
@@ -118,7 +119,8 @@ accès automatisés (403). Les licences de ces deux sources ont été vérifiée
   septoriose et rouilles. Très bon jeu de **test inter-sources**. Il faudra vérifier au
   chantier 2 comment ses étiquettes (masques et métadonnées d'occurrence) se ramènent à
   nos classes.
-- **Éthiopie (Holeta).** Feuilles au champ, appareil reflex, conditions non contrôlées. Il
+- **Éthiopie (Holeta).** Feuilles tenues à la main devant un fond varié (jean, main, papier) :
+  risque de biais de fond. Canon EOS Rebel T6i, toutes prises le 31 mars 2021 (EXIF). Il
   partage 3 classes avec John Innes (sain, rouille jaune, septoriose) : c'est l'écart de
   domaine le plus simple à mesurer.
 - **NWRD.** Images multi-feuilles au champ (NUST, Pakistan), masques de rouille jaune.
@@ -203,10 +205,33 @@ Total connu : environ 2,7 Go, plus les deux tailles non vérifiées. GWHD (10,2 
 orthomosaïques WeedsGalore (11 Go) et Kazakhstan (23,3 Go) ne seront téléchargés que si
 une étape en a besoin.
 
+### 7.4 Jeux Kaggle (ajout après « utilise Kaggle »)
+
+Les jeux publics Kaggle se téléchargent sans clé (l'API redirige vers une URL signée).
+112 jeux ont été listés via l'API sur 17 requêtes. Pour chaque candidat pertinent, la
+description, la liste des fichiers, puis les EXIF après téléchargement ont été examinés.
+La licence Kaggle est **déclarée par le déposant**, qui n'est souvent pas l'auteur des
+images.
+
+| Jeu Kaggle | Licence déclarée | Constat | Décision |
+|---|---|---|---|
+| shantkumar/yellowrust-2223-dataset | CDLA-Permissive-1.0 | 10 000 images 256×256 ; EXIF cohérents avec une collecte originale (2 smartphones, 26 jours, janv.–mars 2022 et 2023) | **candidate** : test inter-sources seulement |
+| yilikalfikru/wheat-leaf-disease-dataset-for-dl-classification | CC BY 4.0 | compilation : images d'Éthiopie, de Yellow-Rust-19, noms John Innes, images web (.jfif, .webp, vignettes 275×183, photos de 2006) | **exclu** |
+| kushagra3204/wheat-plant-diseases (14 154 images, 15 classes) | CC0 | aucune provenance ; recopié par d'autres (urszulakostuch sous Apache-2.0, freedomfighter1290 sous MIT) | **exclu** |
+| devendrababu9666/wheat-rust-raw-dataset | MIT | exactement les 5 421 images brutes de Yellow-Rust-19 (licence d'origine « Unknown ») | **exclu** |
+| jayaprakashpondy/wheat-leaf-disease, srkuhin/* (« WLD ») | CC0, Apache-2.0 | contient les 349 images de septoriose de John Innes sous une autre licence | **exclu** (utiliser l'original) |
+| jawadali1045/20k-multi-class-crop-disease-images | CC0 | la description annonce du *web scraping* | **exclu** |
+| tolgahayit/yellowrust19 | « Unknown » (vérifié via l'API) | — | **exclu** |
+| lyxbash/wheat-fungi-dataset | « Unknown » | copie de WFD2020 (non commercial) | **exclu** |
+| yasserhessein/wheat-disease-dataset-small, jocelyndumlao/*, khanaamer/*, vbookshelf/global-wheat-head-dataset-2021, arsumez/uav-maize-* | divers | copies de jeux déjà vérifiés à la source (John Innes, Inde, Bangladesh, GWHD, maïs) | télécharger les **originaux** (Zenodo, Mendeley) |
+| faramuqaddas/wheat-field-multispectral-uav-image-dataset | « Unknown » | blé, MicaSense Altum-PT, 221 génotypes (Pakistan, 2024–2025), sans étiquette de maladie | **exclu** (licence) |
+| masiaslahi/rgbnir-aerial-crop-dataset | MIT (déposé par l'autrice de l'article) | RVB + PIR aérien (MicaSense), sans étiquette de maladie | non retenu (pas de tâche correspondante) |
+
 ## 8. Demandes aux auteurs
 
-Voir [`reports/data_requests.md`](data_requests.md) : objet, intérêt et brouillon de mail
-pour chaque demande (John Innes ; Su et al. ; Nguyen et al.).
+**Abandonnées** : ces demandes ne peuvent pas être faites pour l'instant (décision du
+7 octobre). Les brouillons restent dans [`reports/data_requests.md`](data_requests.md) si
+la situation change. Les sources ouvertes et Kaggle (§ 7.4) les remplacent.
 
 ## 9. Sources principales
 

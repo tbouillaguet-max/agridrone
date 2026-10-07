@@ -27,7 +27,10 @@ maize_stress_rust_tr:
   orthomosaics:
     - "01_orthomosaics/common_rust_2025/Processed_Orthomosaic.tif"
     - "01_orthomosaics/water_stress_2025/positive_output.tif"
-  ortho_bands: [1, 2, 3, 4, 5]  # B, V, R, RE, PIR ; alpha (bande 6) exclu, validité par nodata
+  ortho_bands: [1, 2, 3, 4, 5]  # B, V, R, RE, PIR
+  # Les zones vides ne sont pas codées en nodata (0 ou ~0,03 avec alpha ~0) : la
+  # validité vient du canal alpha (bande 6), seuil 0,5.
+  ortho_alpha_band: 6
   tile: 256
   overlap: 64
   block: 1024

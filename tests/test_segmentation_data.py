@@ -119,3 +119,27 @@ def test_tile_orthomosaic_georeferenced_and_spatially_split(tmp_path: Path) -> N
         assert ds.transform.f == transform.f - first["row"] * 0.02
     index = pd.read_csv(tmp_path / "tiles" / "ortho_tiles.csv")
     assert len(index) == len(df)
+
+
+def test_tile_orthomosaic_uses_alpha_when_empty_areas_are_not_nodata(tmp_path: Path) -> None:
+    # Piège rencontré sur de vraies orthomosaïques : zone vide = 0 sur toutes les bandes,
+    # sans nodata déclaré ; seul le canal alpha la signale.
+    data = np.random.default_rng(0).random((6, 256, 256), dtype=np.float32)
+    data[5] = 1.0  # alpha
+    data[:, :, :128] = 0.0  # moitié gauche vide, alpha = 0
+    ortho = write_geotiff(
+        tmp_path / "o.tif", data, {"crs": "EPSG:32631", "transform": from_origin(0, 0, 0.01, 0.01)}
+    )
+    kwargs = {
+        "tile": 64,
+        "overlap": 0,
+        "block": 64,
+        "fractions": {"train": 1.0},
+        "bands": [1, 2, 3, 4, 5],
+    }
+    without_alpha = tile_orthomosaic(ortho, tmp_path / "a", **kwargs)
+    with_alpha = tile_orthomosaic(ortho, tmp_path / "b", alpha_band=6, **kwargs)
+    assert len(without_alpha) == 16  # zone vide prise pour valide
+    assert len(with_alpha) == 8 and (with_alpha["col"] >= 128).all()
+    tile = read_geotiff(tmp_path / "b" / "train" / f"{with_alpha.iloc[0]['tile']}.tif")
+    assert tile.valid.all()

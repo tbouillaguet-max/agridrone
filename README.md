@@ -33,6 +33,7 @@ export vers l'embarqué).
 ```
 configs/            configs YAML (héritage `_base_`, surcharges en CLI) — voir configs/README.md
 data/               données, jamais versionnées — voir data/README.md
+                    (registre des sources et empreintes : configs/data/)
   raw/              téléchargements bruts (immuables)
   interim/          extractions / conversions intermédiaires
   processed/        jeux prêts à l'entraînement + fichiers de découpage
@@ -103,15 +104,24 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : 
 | Chantier | Contenu | Commande | État |
 |---|---|---|---|
 | 0 | Socle (structure, device, graines, configs, MLflow) | `agridrone info`, `agridrone config`, `agridrone smoke` | fait |
-| 1 | Inventaire et vérification des données | — (livrables : [reports/data_inventory.md](reports/data_inventory.md), [reports/data_requests.md](reports/data_requests.md)) | v2 vérifiée à la source, en attente de validation |
-| 2 | Pipeline de données : téléchargement, conversion, découpage par source/parcelle/date, tuilage, augmentations | à venir | attend la validation du chantier 1 |
+| 1 | Inventaire et vérification des données | — (livrables : [reports/data_inventory.md](reports/data_inventory.md), [reports/data_requests.md](reports/data_requests.md)) | fait |
+| 2 | Pipeline de données : téléchargement vérifié, conversion, découpage par groupes, tuilage, augmentations, exploration | `agridrone data list\|download\|verify\|prepare-classification\|prepare-segmentation` ; [notebook](notebooks/01_exploration_donnees.ipynb) ; [reports/data_pipeline.md](reports/data_pipeline.md) | fait |
 | 3 | Baseline YOLO11n/s pucerons (RVB, petits objets, SAHI) | — | **reporté** (pucerons mis de côté) |
 | 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny) | à venir | — |
 | 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu) | à venir | aucun jeu public pour le blé : chaîne validée sur WeedsGalore (inventaire, §7.2) |
 | 6 | Rapport des baselines, export ONNX, temps d'inférence | à venir | — |
 
-Les commandes des chantiers 2 à 6 seront ajoutées à la CLI et documentées ici au
-fur et à mesure.
+Données, de bout en bout (détails dans [reports/data_pipeline.md](reports/data_pipeline.md)) :
+
+```bash
+uv run agridrone data list                          # registre : sources, statut, licence
+uv run agridrone data download --include-candidates # téléchargement vérifié + extraction
+uv run agridrone data prepare-classification        # data/processed/classification/
+uv run agridrone data prepare-segmentation          # data/processed/segmentation/
+```
+
+L'extraction des archives RAR demande `unar` (`apt install unar` ou `brew install unar`).
+Les commandes des chantiers 4 à 6 seront ajoutées au fur et à mesure.
 
 ## Licences : points d'attention
 

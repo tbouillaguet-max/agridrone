@@ -1,5 +1,9 @@
 # Demandes de données aux auteurs
 
+> **En suspens** (7 octobre 2026) : ces demandes ne peuvent pas être faites pour
+> l'instant. Le projet avance avec les sources ouvertes et Kaggle (voir
+> `reports/data_inventory.md` § 7.4). Ce fichier reste prêt si la situation change.
+
 Trois jeux sont très utiles mais pas (ou pas entièrement) téléchargeables librement. La
 seule façon de les obtenir est d'écrire aux auteurs. Les adresses ci-dessous sont celles
 que les auteurs publient eux-mêmes pour ce type de demande (fiche Zenodo ou article).

@@ -189,12 +189,18 @@ def tile_orthomosaic(
     fractions: Mapping[str, float],
     seed: int = 0,
     bands: list[int] | None = None,
+    alpha_band: int | None = None,
+    alpha_threshold: float = 0.5,
     min_valid: float = 0.5,
 ) -> pd.DataFrame:
     """Découpe une orthophoto en tuiles GeoTIFF qui se chevauchent, avec découpage spatial.
 
-    Les tuiles dont moins de ``min_valid`` des pixels sont valides (bordures noires de
-    l'orthomosaïque) sont écartées. Chaque tuile garde son géoréférencement.
+    Validité d'un pixel : masque GDAL (nodata) **et**, si ``alpha_band`` est donné,
+    alpha > ``alpha_threshold``. Certaines orthomosaïques ne codent pas leurs zones vides
+    en nodata (valeur 0, ou proche de 0, avec un alpha nul) : sans le canal alpha, ces
+    zones passeraient pour valides. Les pixels invalides sont écrits en NaN dans les
+    tuiles ; les tuiles avec moins de ``min_valid`` de pixels valides sont écartées.
+    Chaque tuile garde son géoréférencement.
     """
     with rasterio.open(ortho) as ds:
         height, width = ds.height, ds.width
@@ -204,9 +210,12 @@ def tile_orthomosaic(
     for win, split in zip(windows, splits, strict=True):
         if split is None:
             continue
-        raster = read_geotiff(
-            ortho, bands=bands, window=RioWindow(win.col, win.row, win.width, win.height)
-        )
+        window = RioWindow(win.col, win.row, win.width, win.height)
+        raster = read_geotiff(ortho, bands=bands, window=window)
+        if alpha_band is not None:
+            alpha = read_geotiff(ortho, bands=[alpha_band], window=window).data[0]
+            raster.valid &= alpha > alpha_threshold
+        raster.data[:, ~raster.valid] = np.nan
         valid_fraction = float(raster.valid.mean())
         if valid_fraction < min_valid:
             continue
@@ -254,6 +263,7 @@ class MaizeConfig(_Strict):
     patch_block: int
     orthomosaics: list[str]
     ortho_bands: list[int]
+    ortho_alpha_band: int | None = None
     tile: int
     overlap: int
     block: int
@@ -347,5 +357,6 @@ def prepare_segmentation(
             fractions=mz.fractions,
             seed=mz.seed,
             bands=mz.ortho_bands,
+            alpha_band=mz.ortho_alpha_band,
         )
     return results
