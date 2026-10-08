@@ -338,7 +338,9 @@ maladies absentes de la liste du classifieur à 5 classes (§ 1.6).
 
 - ConvNeXt-Tiny, 8 époques, float32 (37 min). Meilleure époque : la 6e.
 - « Sain » si p(sain) atteint le seuil, sinon « malade ». Il n'y a pas de sortie
-  « incertain » : le doute vaut « malade ».
+  « incertain » : le doute vaut « malade ». Dans les sorties d'`agridrone evaluate`, ces
+  images apparaissent sous la décision `uncertain` : elles sont comptées ici comme
+  « malade ».
 - Deux seuils, tous deux choisis sur la validation :
 
 | Mode | Seuil | Règle de calibration (validation) |
@@ -432,6 +434,9 @@ Run : `runs/classification/20261008-032124_binaire_convnext_tiny_421963dd` (comm
 `2b76b86`, empreinte `421963dd…`). La précision fp32 a été passée en ligne de commande :
 le processeur de cette session n'a pas d'AMX, et le bf16 y est émulé, trois fois plus
 lent.
+Résultats : `eval/` (mode équilibré) et `eval-strict/` (mode sain très sûr,
+`eval.max_missed_rate=0.0`) ; la comparaison avec le classifieur à 5 classes est dans
+`eval/comparaison_5_classes.json`.
 
 ## 2. Segmentation multispectrale (chantier 5)
 
