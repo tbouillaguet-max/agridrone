@@ -36,7 +36,7 @@ model:
   drop_path_rate: 0.1
 
 train:
-  epochs: 12                    # 5 fois plus d'images par époque que le modèle à 5 classes
+  epochs: 8                     # 5 fois plus d'images par époque que le modèle à 5 classes
   batch_size: 32
   lr: 1.0e-4
   weight_decay: 0.05
@@ -44,7 +44,9 @@ train:
   min_lr_ratio: 0.01
   class_weights: balanced
   label_smoothing: 0.0
-  patience: 4
+  patience: 3
+  # bf16 : CPU avec AMX ou GPU Ampere et plus récent. Sur un CPU sans AMX ni AVX512-BF16,
+  # le bf16 est émulé et 3 fois plus lent : lancer avec train.precision=fp32.
   precision: bf16
 
 eval:
