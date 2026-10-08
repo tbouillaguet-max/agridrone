@@ -12,6 +12,7 @@ from agridrone.data.classification import (
     SourceSpec,
     add_fingerprints,
     assign_splits,
+    check_training_sources,
     materialize,
     raw_label,
     scan_sources,
@@ -190,3 +191,13 @@ def test_test_source_never_changes_train_groups() -> None:
     assert both.loc[both["role"] == "test", "excluded_reason"].item() == (
         "quasi-doublon d'une image d'entraînement"
     )
+
+
+def test_training_sources_must_be_retained(cfg: ClassificationDataConfig) -> None:
+    from agridrone.core.config import ConfigError
+
+    check_training_sources(cfg, {"train_src": "retained", "test_src": "candidate"})
+    with pytest.raises(ConfigError, match="train_src"):
+        check_training_sources(cfg, {"train_src": "candidate", "test_src": "retained"})
+    with pytest.raises(ConfigError, match="absente"):
+        check_training_sources(cfg, {})

@@ -20,9 +20,10 @@ import os
 import shutil
 import subprocess
 import zipfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from fnmatch import fnmatch
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
@@ -61,6 +62,10 @@ class SourceFile(BaseModel):
     size: int | None = None
     md5: str | None = None
     sha256: str | None = None
+    #: Motifs (fnmatch) des membres à extraire d'une archive ZIP ; par défaut, tout.
+    #: Sert à ne garder qu'une partie d'une grosse archive (ex. les images originales
+    #: sans les images augmentées, qui ne doivent jamais servir de test).
+    extract_only: list[str] | None = None
 
     @field_validator("name")
     @classmethod
@@ -311,15 +316,19 @@ def _check_member(name: str) -> None:
         raise UnsafeArchiveError(f"chemin refusé dans l'archive : {name!r}")
 
 
-def _extract_zip(archive: Path, dest: Path) -> None:
+def _extract_zip(archive: Path, dest: Path, include: Sequence[str] | None = None) -> None:
     with zipfile.ZipFile(archive) as zf:
         members = zf.infolist()
         for member in members:
             _check_member(member.filename)
             if (member.external_attr >> 16) & 0o170000 == 0o120000:
                 raise UnsafeArchiveError(f"lien symbolique refusé : {member.filename!r}")
+        if include is not None:
+            members = [m for m in members if any(fnmatch(m.filename, pat) for pat in include)]
+            if not members:
+                raise ValueError(f"{archive.name} : aucun membre ne correspond à {list(include)}")
         _check_free_space(sum(m.file_size for m in members), dest)
-        zf.extractall(dest)
+        zf.extractall(dest, members=members)
 
 
 #: Outils d'extraction RAR, par ordre de préférence. Le décodeur RAR de libarchive
@@ -362,11 +371,12 @@ def _check_free_space(needed: int, dest: Path) -> None:
         )
 
 
-def extract_archive(archive: Path, dest: Path) -> Path:
+def extract_archive(archive: Path, dest: Path, include: Sequence[str] | None = None) -> Path:
     """Extrait ``archive`` dans ``dest`` (idempotent : marqueur ``.extracted``).
 
     L'extraction se fait dans un dossier temporaire, renommé à la fin : une
-    extraction interrompue ne laisse jamais un ``dest`` incomplet.
+    extraction interrompue ne laisse jamais un ``dest`` incomplet. ``include`` limite
+    l'extraction aux membres qui correspondent à l'un des motifs (ZIP seulement).
     """
     marker = dest / ".extracted"
     if marker.exists():
@@ -376,7 +386,9 @@ def extract_archive(archive: Path, dest: Path) -> Path:
     tmp.mkdir(parents=True)
     try:
         if zipfile.is_zipfile(archive):
-            _extract_zip(archive, tmp)
+            _extract_zip(archive, tmp, include)
+        elif include is not None:
+            raise ValueError(f"{archive.name} : extract_only n'est pris en charge que pour les ZIP")
         elif archive.suffix.lower() == ".rar":
             _extract_rar(archive, tmp)
         else:
@@ -411,7 +423,9 @@ def fetch_source(
     ]
     write_manifest(source_id, source, results, raw_dir)
     if extract:
-        for result in results:
+        for spec, result in zip(source.files, results, strict=True):
             if is_archive(result.path):
-                extract_archive(result.path, interim_dir / source_id / result.path.stem)
+                extract_archive(
+                    result.path, interim_dir / source_id / result.path.stem, spec.extract_only
+                )
     return results

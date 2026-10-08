@@ -190,3 +190,17 @@ def test_repository_registry_is_valid(repo_root: Path) -> None:
     for source in registry.sources.values():
         for f in source.files:
             assert f.url.startswith("https://")
+
+
+def test_extract_only_keeps_matching_members(tmp_path: Path) -> None:
+    from agridrone.data.sources import extract_archive
+
+    archive = tmp_path / "a.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("Data/Original Dataset/Healthy/a.jpg", b"1")
+        zf.writestr("Data/Augmented Dataset/Healthy/a_aug.jpg", b"2")
+    dest = extract_archive(archive, tmp_path / "out", ["*/Original Dataset/*"])
+    files = sorted(p.relative_to(dest).as_posix() for p in dest.rglob("*") if p.is_file())
+    assert files == [".extracted", "Data/Original Dataset/Healthy/a.jpg"]
+    with pytest.raises(ValueError, match="aucun membre"):
+        extract_archive(archive, tmp_path / "out2", ["*/Nope/*"])

@@ -72,6 +72,9 @@ class SourceSpec(BaseModel):
 class ClassificationDataConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    #: Nom du jeu préparé : dossier ``<processed>/<name>``. Plusieurs jeux (ex. 5 classes
+    #: et binaire sain / malade) cohabitent ainsi sans s'écraser.
+    name: str = Field(default="classification", pattern=r"^[a-z0-9_]+$")
     classes: list[str]
     fractions: dict[str, float] = Field(
         default_factory=lambda: {"train": 0.7, "val": 0.15, "test": 0.15}
@@ -90,6 +93,21 @@ class ClassificationDataConfig(BaseModel):
             if unknown:
                 raise ValueError(f"{source_id} : classes inconnues {sorted(unknown)}")
         return self
+
+
+def check_training_sources(cfg: ClassificationDataConfig, statuses: dict[str, str]) -> None:
+    """Refuse une source d'entraînement dont le statut au registre n'est pas ``retained``
+    (provenance non confirmée : test seulement)."""
+    bad = {
+        source_id: statuses.get(source_id, "absente du registre")
+        for source_id, spec in cfg.sources.items()
+        if spec.role == "train" and statuses.get(source_id) != "retained"
+    }
+    if bad:
+        raise ConfigError(
+            "sources d'entraînement non retenues au registre (test seulement) : "
+            + ", ".join(f"{k} ({v})" for k, v in bad.items())
+        )
 
 
 def load_classification_config(path: str | Path) -> ClassificationDataConfig:

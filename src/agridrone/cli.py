@@ -231,14 +231,18 @@ def _cmd_data_prepare_classification(args: argparse.Namespace) -> int:
     from agridrone.core.config import load_experiment
     from agridrone.core.paths import resolve_path
     from agridrone.data.classification import (
+        check_training_sources,
         load_classification_config,
         prepare_classification,
         summarize,
     )
+    from agridrone.data.sources import load_registry
 
     cfg = load_experiment(resolve_path(args.config))
     data_cfg = load_classification_config(resolve_path(args.data_config))
-    out_dir = resolve_path(cfg.paths.processed) / "classification"
+    registry = load_registry(resolve_path(args.registry))
+    check_training_sources(data_cfg, {k: v.status for k, v in registry.sources.items()})
+    out_dir = resolve_path(cfg.paths.processed) / data_cfg.name
     df = prepare_classification(data_cfg, resolve_path(cfg.paths.interim), out_dir)
     summary = summarize(df)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
@@ -316,6 +320,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = data_sub.add_parser("prepare-classification", help="jeu « dossiers par classe »")
     p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
     p.add_argument("--data-config", default="configs/data/classification.yaml")
+    p.add_argument("--registry", default=DEFAULT_REGISTRY, help="registre des sources")
     p.set_defaults(func=_cmd_data_prepare_classification)
     p = data_sub.add_parser("prepare-segmentation", help="jeux multispectraux N bandes + tuilage")
     p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")

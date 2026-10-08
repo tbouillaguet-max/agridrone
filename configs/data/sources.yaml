@@ -75,7 +75,7 @@ sources:
   henan_wheat_disease:
     title: "Wheat Dataset (Henan, Chine) : 7 classes de maladies du blé au champ"
     task: classification
-    status: candidate
+    status: retained
     license: CC-BY-4.0
     license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-08"
     attribution: >-
@@ -87,8 +87,11 @@ sources:
     notes: >-
       Déposé par le premier auteur de l'article. Jeu de détection (boîtes YOLO) ; la
       classe de chaque image est donnée par le préfixe du nom de fichier (LeafRust,
-      StripeRust, Powdery, Scab, Glume, WheatEar, WheatLeaf). Candidat tant que la
-      provenance des images (EXIF, doublons web) n'est pas contrôlée. Test seulement.
+      StripeRust, Powdery, Scab, Glume, WheatEar, WheatLeaf). Passé de « candidate » à
+      « retained » le 2026-10-08 : dépôt de l'auteur cité, photos de terrain cohérentes
+      entre classes (même champ, même sol, mains des opérateurs), aucun doublon avec les
+      cinq autres jeux. Réserve : EXIF absents (supprimés au traitement), tailles
+      d'image variées pour l'oïdium. Utilisé à l'entraînement du modèle binaire.
     files:
       - name: xiaomai.zip
         url: "https://zenodo.org/api/records/15621359/files/xiaomai.zip/content"
@@ -118,6 +121,30 @@ sources:
         url: "https://zenodo.org/api/records/13137587/files/labels-20240730T174625Z-001.zip/content"
         size: 228858
         md5: 77aa9ac86508956848fee8ad89c111df
+
+  bangladesh_wheat_disease:
+    title: "Disease Dataset of Wheat: Original, Augmented, and Balanced (Bangladesh)"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API publique Mendeley (data_licence = CC BY 4.0), consultée le 2026-10-08"
+    attribution: >-
+      Radowan M.I.R., Ayon R. (Daffodil International University). Disease Dataset of
+      Wheat: Original, Augmented, and Balanced for Deep Learning. Mendeley Data, V1.
+      doi:10.17632/5gc7hwydwg.1
+    provider: mendeley
+    homepage: https://data.mendeley.com/datasets/5gc7hwydwg/1
+    notes: >-
+      Photos de feuilles au champ (Bangladesh), 1920×1080 : point noir, piétin fusarien,
+      feuille saine, helminthosporiose, pyriculariose (1 603 originales). Seules les
+      images originales sont extraites : les images augmentées ne servent jamais de test.
+      Maladies absentes de nos autres jeux : test des maladies jamais vues.
+    files:
+      - name: "Wheat Disease.zip"
+        url: "https://data.mendeley.com/public-files/datasets/5gc7hwydwg/files/5c163bc0-311f-4b10-bd09-d5cb949237cc/file_downloaded"
+        size: 3817584463
+        sha256: bb21be5d9dbfb9a543231fb9e3882901248b8c9cd3201a98169eb364e9278196
+        extract_only: ["Wheat Disease/Original Dataset/*", "Wheat Disease/README.txt"]
 
   kaggle_wheat_leaf_dl:
     title: "Wheat Leaf Disease Dataset for DL Classification (Kaggle, yilikalfikru)"
