@@ -287,7 +287,7 @@ def plot_risk_coverage(
         handles=handles,
         loc="upper center",
         bbox_to_anchor=(0.5, -0.14),
-        ncols=len(handles),
+        ncols=min(3, len(handles)),
         frameon=False,
         fontsize=9,
     )

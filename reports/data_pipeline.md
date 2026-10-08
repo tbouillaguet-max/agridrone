@@ -26,6 +26,8 @@ fichiers sans somme publiée : [`configs/data/sources.lock.yaml`](../configs/dat
 | John Innes Centre, 999 images | retenue | CC BY 4.0 | entraînement chantier 4 | md5 publié (Zenodo) |
 | Feuilles de blé, Éthiopie | retenue | CC BY 4.0 | test inter-sources | sha256 publié (Mendeley) |
 | YellowRust_22-23 (Kaggle) | candidate | CDLA-Permissive-1.0 | test inter-sources | sha256 enregistré au 1er téléchargement |
+| Henan, Chine (Zenodo 15621359, ajout du 8 oct.) | candidate | CC BY 4.0 | test inter-sources | md5 publié (Zenodo) |
+| Tekirdağ, Turquie (Zenodo 13137587, ajout du 8 oct.) | retenue | CC BY 4.0 | test inter-sources (oïdium) | md5 publié (Zenodo) |
 | WeedsGalore | retenue | CC BY 4.0 | chaîne N bandes (chantier 5) | taille + sha256 enregistré |
 | Maïs, stress hydrique et rouille (Turquie) | retenue | CC BY 4.0 | lecture et tuilage | md5 publiés (Zenodo) |
 
@@ -69,9 +71,15 @@ l'autre :
 | John Innes | grappes de quasi-doublons ∪ même jour EXIF ∪ séries de fichiers consécutifs (numéros à ≤ 2 d'écart, même classe) | 699 / 150 / 150 (70/15/15 en images) | pas de date ni de parcelle connue pour 974 images sur 999 : la numérotation des fichiers sert d'indice de série de prises de vue |
 | Éthiopie | — | test inter-sources (405) | une seule journée de prise de vue |
 | YellowRust_22-23 | — | test inter-sources (9 802) | 26 jours, 2 smartphones ; les dossiers train/val/test d'origine sont ignorés |
+| Henan | — | test inter-sources (2 402) | fusariose et septoriose de l'épi écartées (hors classes), analysées à part |
+| Tekirdağ | — | test inter-sources (408) | dossiers d'origine ignorés |
 | WeedsGalore | **découpage officiel spatial** : 8/2/2 parcelles ; une localisation n'apparaît jamais dans deux ensembles, même à des dates différentes | 104 / 26 / 26 échantillons | 4 dates (mai–juin 2023) |
 | Patchs maïs | blocs de 1024 px de chaque orthomosaïque | 628 / 135 / 133 | pseudo-étiquettes (voir § 6) |
 | Tuiles d'orthophoto | blocs de 1024 px ; une tuile qui déborde sur un bloc d'un autre ensemble est écartée | 554 tuiles (rouille), 551 (stress hydrique) | aucun pixel partagé entre ensembles (test dédié) |
+
+Les liens de groupe ne relient que des images d'un même rôle (entraînement ou test) :
+ajouter un jeu de test ne modifie jamais le découpage d'entraînement (test dédié ; vérifié
+lors de l'ajout du Henan et de Tekirdağ).
 
 **Fuites contrôlées automatiquement** (`assert_no_group_leakage`, appelé à chaque
 préparation) :

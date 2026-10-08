@@ -11,9 +11,10 @@ Machine : CPU à 4 cœurs (Xeon avec instructions AMX), sans GPU.
 ## En bref
 
 - **Classifieur de maladies (§ 1)** : ConvNeXt-Tiny atteint 95 % d'exactitude sur le test
-  John Innes. Sur d'autres sources, il déclare malades la plupart des feuilles saines.
-  Les jeux publics ne suffisent pas : il faut des images drone étiquetées de vos
-  parcelles.
+  John Innes. Sur des photos de terrain d'un autre pays (Henan, Chine), il tient 85 %
+  (96 % sur les images qu'il décide). Sur des gros plans ou des feuilles tenues à la main,
+  il déclare malades la plupart des feuilles saines. Une maladie jamais apprise peut
+  passer pour « sain ». Il faut des images drone étiquetées de vos parcelles.
 - **Segmentation multispectrale (§ 2)** : un U-Net 5 bandes atteint 85,5 de mIoU sur
   WeedsGalore (culture / adventices). C'est au moins le niveau publié, et bien au-dessus
   des meilleurs seuils NDVI (53,5). Le red-edge et le proche infrarouge apportent
@@ -212,6 +213,97 @@ uv run agridrone train -c configs/classification/convnext_tiny.yaml num_workers=
 Le code d'entraînement est identique entre ces deux commits. L'AUROC sain/malade a
 été ajoutée à l'évaluation après ces deux runs (commit `0a0ad19`). Pour eux, elle est
 calculée à partir des prédictions enregistrées (`eval/<ensemble>/predictions.csv`).
+
+### 1.6 Deux nouveaux jeux de test (8 octobre 2026)
+
+Une recherche multi-sources a relevé 91 candidats distincts. Elle couvrait les dépôts
+académiques, Kaggle, Hugging Face et GitHub, la science participative et la littérature
+(inventaire, § 7.5). Elle a été interrompue deux fois par la limite d'usage.
+
+Deux jeux ont été retenus après vérification à la source, à l'aide de l'API Zenodo et
+des sommes md5. Aucune de leurs images n'est un quasi-doublon d'une image
+d'entraînement. Les découpages existants sont inchangés (vérifié), donc les deux modèles
+du § 1.2 sont évalués tels quels, avec les mêmes seuils.
+
+| Jeu | Contenu | Licence | Vérification |
+|---|---|---|---|
+| **Henan (Chine)**, Ma et al. 2024, [zenodo 15621359](https://zenodo.org/records/15621359) | Photos smartphone au champ (feuilles et épis), 2 402 images retenues : 945 saines (444 feuilles, 501 épis), 632 rouille brune, 434 rouille jaune, 391 oïdium | CC BY 4.0 | Déposé par le premier auteur de l'article. Sans EXIF, tailles disparates : statut **candidate**, test seulement |
+| **Tekirdağ (Turquie)**, Önler & Köycü 2024, [zenodo 13137587](https://zenodo.org/records/13137587) | Gros plans de feuilles au smartphone (iPhone 8, mai 2023), 408 images, toutes d'oïdium | CC BY 4.0 | Collecte originale (EXIF cohérents) |
+
+Mêmes colonnes qu'au § 1.2 :
+
+| Modèle | Jeu | n | Exactitude (IC 95 %) | F1 macro | Ratés | Fausses alertes | Couverture | Exactitude sélective | Ratés | Fausses alertes | ECE | AUROC sain/malade |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| **ConvNeXt-Tiny** | Henan (Chine) | 2 402 | **84,9 %** (83 à 86 %) | **0,850** | 0,8 % | 28,5 % | 70,6 % | **95,8 %** | 0,4 % | 4,6 % | 0,05 | 0,99 |
+| **ConvNeXt-Tiny** | Tekirdağ (Turquie) | 408 | 53,4 % (49 à 58 %) | 0,696 | 2,2 % | — | 43,1 % | 77,3 % | 0,0 % | — | 0,27 | — |
+| EfficientNet-B0 | Henan (Chine) | 2 402 | 54,5 % (52 à 56 %) | 0,554 | 2,4 % | 53,1 % | 59,8 % | 63,4 % | 1,0 % | 21,7 % | 0,29 | 0,91 |
+| EfficientNet-B0 | Tekirdağ (Turquie) | 408 | 37,3 % (33 à 42 %) | 0,543 | 5,6 % | — | 56,6 % | 39,8 % | 2,9 % | — | 0,45 | — |
+
+F1 par classe, sans abstention ; R = rappel.
+
+| Modèle | Jeu | sain | rouille jaune | rouille brune | oïdium |
+|---|---|--:|--:|--:|--:|
+| ConvNeXt-Tiny | Henan (Chine) | 0,83 (R 71,5 %) | 0,77 (R 98,4 %) | 0,98 (R 97,6 %) | 0,82 (R 81,8 %) |
+| ConvNeXt-Tiny | Tekirdağ (Turquie) | — | — | — | 0,70 (R 53,4 %) |
+| EfficientNet-B0 | Henan (Chine) | 0,62 (R 46,9 %) | 0,52 (R 79,5 %) | 0,56 (R 57,0 %) | 0,51 (R 41,2 %) |
+| EfficientNet-B0 | Tekirdağ (Turquie) | — | — | — | 0,54 (R 37,3 %) |
+
+![ConvNeXt-Tiny : exactitude selon la couverture, cinq jeux de test](figures/classif_convnext_exactitude_couverture_5tests.png)
+![ConvNeXt-Tiny : matrice de confusion, Henan](figures/classif_convnext_confusion_henan.png)
+![ConvNeXt-Tiny : matrice de confusion sans abstention, Tekirdağ](figures/classif_convnext_confusion_tekirdag.png)
+
+**Lecture.**
+
+- **Sur des photos de terrain d'un autre pays, ConvNeXt-Tiny tient bien.**
+  - Il atteint 85 % d'exactitude au Henan. Sa confiance y reste fiable : ECE de 0,05,
+    proche des 0,03 en domaine.
+  - Avec la règle de décision, il décide 71 % des images. Il y a raison à 96 %, avec
+    0,4 % de ratés et 4,6 % de fausses alertes.
+  - Les rouilles sont reconnues à 98 %.
+  - EfficientNet-B0 transfère beaucoup moins bien (54,5 %), ce qui confirme le choix du
+    § 1.3.
+- **Le point de vue compte davantage que le pays.** Les images du Henan, comme celles de
+  John Innes, sont des vues de terrain, et le transfert fonctionne. Les jeux où il échoue
+  sont des gros plans ou des feuilles tenues devant un fond neutre :
+  - Tekirdağ : 53 % de rappel pour l'oïdium, dont 32 % pris pour de la rouille jaune ;
+  - YellowRust ;
+  - en partie l'Éthiopie.
+
+  Votre drone donnera encore un autre point de vue, vu de dessus et à quelques mètres.
+  Il faudra le mesurer sur vos propres images.
+- **Les fausses alertes restantes ont deux causes identifiables** :
+  - des épis sains en cours de maturation, jaunissants, pris pour de la rouille jaune :
+    177 sur 501 ;
+  - des feuilles saines prises pour de l'oïdium : 69 sur 444.
+
+  La règle en renvoie l'essentiel vers « incertain ». Il reste 5,2 % d'alertes à tort sur
+  les épis sains et 3,8 % sur les feuilles saines.
+
+**Maladies hors périmètre.** Le jeu du Henan contient aussi deux maladies de l'épi que
+le modèle n'a jamais apprises. Ce qu'en dit ConvNeXt-Tiny avec la règle de décision
+(`eval-nouveaux-tests/hors_perimetre.json`) :
+
+| Maladie (jamais apprise) | n | « incertain » | déclarée **saine** | une maladie apprise |
+|---|--:|--:|--:|--:|
+| Fusariose de l'épi (Scab) | 1 276 | 90,5 % | 2,8 % | 6,7 % |
+| Septoriose de l'épi (Glume blotch) | 465 | 61,5 % | **38,3 %** | 0,2 % |
+
+La sortie « incertain » attrape la plupart des fusarioses. En revanche, plus d'un épi sur
+trois atteint de septoriose de l'épi est déclaré sain, en toute confiance : **une maladie
+absente de l'entraînement peut passer pour « sain »**. Pour un produit, la liste des
+classes doit donc couvrir les maladies de l'épi présentes en France (fusariose,
+septoriose de l'épi). Ce jeu sous CC BY 4.0 en fournit des exemples, à condition de
+confirmer sa provenance avant d'entraîner dessus.
+
+**Reproduire.**
+
+```bash
+uv run agridrone data download henan_wheat_disease tekirdag_powdery_mildew --include-candidates
+uv run agridrone data prepare-classification
+uv run agridrone evaluate --run runs/classification/<run> --out runs/classification/<run>/eval-nouveaux-tests \
+  "data.test_splits=[test,test_ethiopia_wheat_leaf,test_kaggle_yellowrust_2223,test_henan_wheat_disease,test_tekirdag_powdery_mildew]" \
+  "data.split_names.test_henan_wheat_disease=Henan (Chine)" "data.split_names.test_tekirdag_powdery_mildew=Tekirdağ (Turquie)"
+```
 
 ## 2. Segmentation multispectrale (chantier 5)
 

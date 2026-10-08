@@ -227,6 +227,57 @@ images.
 | faramuqaddas/wheat-field-multispectral-uav-image-dataset | « Unknown » | blé, MicaSense Altum-PT, 221 génotypes (Pakistan, 2024–2025), sans étiquette de maladie | **exclu** (licence) |
 | masiaslahi/rgbnir-aerial-crop-dataset | MIT (déposé par l'autrice de l'article) | RVB + PIR aérien (MicaSense), sans étiquette de maladie | non retenu (pas de tâche correspondante) |
 
+### 7.5 Nouveaux jeux de test (recherche du 8 octobre 2026)
+
+La recherche a croisé six angles : dépôts académiques ; Kaggle ; Hugging Face, GitHub et
+AgML ; science participative ; littérature 2022-2026 ; drone et multispectral. Elle a
+relevé 91 candidats distincts. Deux interruptions par la limite d'usage ont empêché la
+contre-vérification systématique.
+
+La colonne « Vérification » indique le niveau de contrôle :
+
+- **à la source** : licence, fichiers et contenu contrôlés par l'API et après
+  téléchargement ;
+- **agent** : relevé par un agent de recherche qui a consulté la source, mais non
+  revérifié.
+
+**Retenus et testés** (résultats : [baseline_results.md](baseline_results.md) § 1.6) :
+
+| Jeu | Contenu utile | Licence | Accès | Vérification | Décision |
+|---|---|---|---|---|---|
+| Henan (Chine), Ma et al. 2024, [zenodo 15621359](https://zenodo.org/records/15621359) | 4 156 photos de terrain ; sain (feuilles, épis), rouille jaune, rouille brune, oïdium + fusariose et septoriose de l'épi | CC BY 4.0 | direct, 1,1 Go | à la source | **candidate**, test (pas d'EXIF) |
+| Tekirdağ (Turquie), Önler & Köycü 2024, [zenodo 13137587](https://zenodo.org/records/13137587) | 445 gros plans d'oïdium (smartphone) | CC BY 4.0 | direct, 1,3 Go | à la source | **retenu**, test |
+
+**Pistes utiles, non testées.** Licences et effectifs tels que relevés.
+
+| Jeu | Contenu utile | Licence | Accès | Vérification | Remarque |
+|---|---|---|---|---|---|
+| IDADP, oïdium et rouille brune ([scidb oïdium](https://www.scidb.cn/en/detail?dataSetId=557575344966598656), [scidb rouille brune](https://www.scidb.cn/en/detail?dataSetId=557575356182167552)) | 461 images d'oïdium, 531 de rouille brune | CC0 | fichier par fichier, sans compte ; 10,8 et 9,3 Go | agent | Images très lourdes ; type de vue non vérifié |
+| ETH Zurich 2026 ([doi](https://doi.org/10.3929/ethz-b-000739194)) | 12 520 gros plans de feuilles au champ (Suisse) : septoriose, rouilles, infections mixtes | CC BY 4.0 | direct (WebDAV), 406 Go | agent (approfondie) | Pas d'étiquette par classe, seulement des détections automatiques ; à sous-échantillonner |
+| INRAE IGEPP, *Cereals.Multi_Cla_Field_LeafFragments* ([doi:10.57745/VYR8ZF](https://doi.org/10.57745/VYR8ZF)) | Blé, **France** : rouille jaune 142, septoriose 133, rouille brune 90, oïdium 65, sain 16 | **CC BY-NC** | direct | agent | **Exclu** (non commercial). Le plus proche de votre contexte : une licence commerciale vaudrait d'être demandée à l'INRAE |
+| Bugwood (UGA), images sur hôte *Triticum* | environ 36 photos de terrain en CC BY pour nos 4 classes de maladies | par image : CC BY 3.0 ou CC BY-NC 3.0 | API publique | agent | À trier image par image ; petit volume |
+| iNaturalist / Pl@ntNet (GBIF), *Triticum aestivum* | environ 3 300 photos CC0 / CC BY de blé, sans étiquette sanitaire | par photo | API publique | agent | Indicateur « sain » seulement, avec attribution par image |
+| DigiGreen (Hugging Face) | 39 annotations de blé (34 saines) | CC BY 4.0 | direct | agent | Trop petit |
+| Luancheng UAV6X 2025 ([zenodo 20512395](https://zenodo.org/records/20512395)) | 3 orthomosaïques drone multispectrales, rouille jaune | CC BY 4.0 | direct | agent | Intéressant pour le multispectral ; étiquettes à examiner |
+| RustNet (WSU, [zzlab.net/RustNet](https://zzlab.net/RustNet/)) | drone et smartphone, rouille jaune / sain | aucune licence pour les images (« All rights reserved ») | direct | agent | **Exclu** (licence) |
+| PlantSeg v3 ([zenodo 14935094](https://zenodo.org/records/14935094)) | images web, dont 8 classes du blé | CC BY 4.0 (v3), CC BY-NC-ND (v1) | direct | agent | **Exclu** : images web de provenance diverse |
+| IEEE DataPort WheatRust / Wheat_Rust_HLSS | rouilles, sain | CC BY 4.0 (DataCite) | **abonnement** IEEE | agent | Accès payant |
+
+**Écartés comme re-publications ou compilations** (licence non transmissible) :
+
+- Zenodo 13292076 (« drone », en réalité un mélange d'images tierces) ;
+- Zenodo 19465596 (Bangladesh repris) ;
+- Zenodo 15634361 et 18214758 (agrégats de jeux publics) ;
+- Zenodo 15056571 (simple PDF publicitaire) ;
+- figshare 26357635 (PlantVillage, PlantDoc, Éthiopie) ;
+- Mendeley 25g6cm8vhb (images Bugwood).
+
+Écartés pour licence non commerciale ou accès sur demande :
+
+- Field-PDD (CC BY-NC) ;
+- WheatDisease-HRY, SWIN-SHARP, NED University, El Jarroudi 2026, Schirrmann 2021 (sur
+  demande).
+
 ## 8. Demandes aux auteurs
 
 **Abandonnées** : ces demandes ne peuvent pas être faites pour l'instant (décision du
