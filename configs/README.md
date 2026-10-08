@@ -31,8 +31,8 @@ Arborescence :
 | Dossier | Contenu | Chantier |
 |---|---|---|
 | `base.yaml` | graine, device, chemins, MLflow | 0 |
-| `data/` | sources retenues, découpages, tuilage | 2 |
+| `data/` | sources retenues, découpages, tuilage ; `classification_binaire.yaml` : jeu sain / malade | 2 |
 | `sensors/` | définition des bandes par capteur (RVB, multispectral N bandes) | 2 |
 | `detection/` | YOLO11 pucerons (à créer : chantier reporté) | 3 |
-| `classification/` | classifieur maladies du blé : `base.yaml` (données, règle de décision), `efficientnet_b0.yaml`, `convnext_tiny.yaml` | 4 |
+| `classification/` | classifieur maladies du blé : `base.yaml` (données, règle de décision), `efficientnet_b0.yaml`, `convnext_tiny.yaml`, `binaire_convnext_tiny.yaml` (sain / malade) | 4 |
 | `segmentation/` | U-Net N bandes et baselines par indices : `base.yaml`, `unet_5bandes.yaml`, `unet_rvb.yaml` | 5 |

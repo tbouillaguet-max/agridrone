@@ -15,6 +15,12 @@ Machine : CPU à 4 cœurs (Xeon avec instructions AMX), sans GPU.
   (96 % sur les images qu'il décide). Sur des gros plans ou des feuilles tenues à la main,
   il déclare malades la plupart des feuilles saines. Une maladie jamais apprise peut
   passer pour « sain ». Il faut des images drone étiquetées de vos parcelles.
+- **Modèle binaire sain / malade (§ 1.7)** : entraîné sur John Innes et Henan, il ne
+  déclare saines que 0,3 % des images de quatre maladies jamais vues (Bangladesh), contre
+  12,9 % pour le classifieur à 5 classes. Hors domaine, ses « sains » sont justes à
+  91-98 %. En contrepartie, 4 à 36 % des images saines sont déclarées malades selon le
+  jeu ; un seuil plus strict réduit encore les erreurs, au prix de davantage de sains à
+  revoir.
 - **Segmentation multispectrale (§ 2)** : un U-Net 5 bandes atteint 85,5 de mIoU sur
   WeedsGalore (culture / adventices). C'est au moins le niveau publié, et bien au-dessus
   des meilleurs seuils NDVI (53,5). Le red-edge et le proche infrarouge apportent
@@ -304,6 +310,128 @@ uv run agridrone evaluate --run runs/classification/<run> --out runs/classificat
   "data.test_splits=[test,test_ethiopia_wheat_leaf,test_kaggle_yellowrust_2223,test_henan_wheat_disease,test_tekirdag_powdery_mildew]" \
   "data.split_names.test_henan_wheat_disease=Henan (Chine)" "data.split_names.test_tekirdag_powdery_mildew=Tekirdağ (Turquie)"
 ```
+
+### 1.7 Modèle binaire « sain fiable » (8 octobre 2026)
+
+**But.** Un modèle complémentaire qui ne répond que « sain » ou « malade », quelle que
+soit la maladie. Quand il dit « sain », il doit avoir raison : c'est la parade aux
+maladies absentes de la liste du classifieur à 5 classes (§ 1.6).
+
+**Données** (`configs/data/classification_binaire.yaml`, jeu préparé à part dans
+`data/processed/classification_binaire`).
+
+- **Entraînement** : John Innes et Henan. La classe « malade » couvre ainsi sept états :
+  rouilles jaune et brune, oïdium, septoriose, fusariose de l'épi, septoriose de l'épi.
+  La classe « sain » réunit feuilles et épis.
+- **Découpage** : 3 606 images d'entraînement, 773 de validation, 772 de test, chaque
+  ensemble comptant environ 20 % d'images saines.
+- **Tests inter-sources, jamais vus** :
+  - Éthiopie, YellowRust et Tekirdağ ;
+  - **Bangladesh** (Mendeley [doi:10.17632/5gc7hwydwg.1](https://doi.org/10.17632/5gc7hwydwg.1),
+    CC BY 4.0, photos de terrain 2025) : 248 saines et **4 maladies absentes de
+    l'entraînement**, à savoir point noir, piétin fusarien, helminthosporiose et
+    pyriculariose.
+- **Images augmentées du Bangladesh** : elles ne sont même pas extraites de l'archive
+  (nouvelle option `extract_only` du registre).
+
+**Modèle et règle.**
+
+- ConvNeXt-Tiny, 8 époques, float32 (37 min). Meilleure époque : la 6e.
+- « Sain » si p(sain) atteint le seuil, sinon « malade ». Il n'y a pas de sortie
+  « incertain » : le doute vaut « malade ».
+- Deux seuils, tous deux choisis sur la validation :
+
+| Mode | Seuil | Règle de calibration (validation) |
+|---|--:|---|
+| **équilibré** | 0,50 | au plus 1 % de malades déclarés sains (0,65 % obtenu) |
+| **sain très sûr** | 0,969 | aucun malade déclaré sain sur les 612 de la validation |
+
+**Résultats sur les jeux jamais vus.** La précision du « sain » est la part d'images
+vraiment saines parmi celles déclarées saines.
+
+| Jeu | Mode | Précision du « sain » | Sains reconnus | Malades déclarés sains |
+|---|---|--:|--:|--:|
+| Éthiopie | équilibré | 90,7 % | 96,0 % | 3,3 % |
+| Éthiopie | sain très sûr | 98,9 % | 91,1 % | 0,3 % |
+| YellowRust 22-23 | équilibré | 98,1 % | 79,7 % | 1,5 % |
+| YellowRust 22-23 | sain très sûr | 99,9 % | 16,0 % | 0,02 % |
+| Bangladesh (maladies jamais vues) | équilibré | 98,1 % | 63,7 % | 0,3 % |
+| Bangladesh (maladies jamais vues) | sain très sûr | 100,0 % | 14,9 % | 0,0 % |
+| Tekirdağ (oïdium seulement) | équilibré | — | — | 0,5 % |
+| Tekirdağ (oïdium seulement) | sain très sûr | — | — | 0,0 % |
+
+Sans seuil (classe la plus probable), l'AUROC sain/malade atteint 0,995 en Éthiopie,
+0,984 sur YellowRust et 0,989 au Bangladesh. Le calibrage reste bon hors domaine (ECE de
+0,006 à 0,032).
+
+**Comparaison avec le classifieur à 5 classes**, chacun avec sa propre règle (pour le
+5 classes, « incertain » compte comme « malade ») :
+
+| Jeu | Modèle | Précision du « sain » | Sains reconnus | Malades déclarés sains |
+|---|---|--:|--:|--:|
+| Éthiopie | binaire, équilibré | 90,7 % | 96,0 % | 3,3 % |
+| Éthiopie | 5 classes | 100 % | 6,9 % | 0 % |
+| YellowRust 22-23 | binaire, équilibré | 98,1 % | 79,7 % | 1,5 % |
+| YellowRust 22-23 | 5 classes | 100 % | 0,1 % | 0 % |
+| Bangladesh | binaire, équilibré | **98,1 %** | 63,7 % | **0,3 %** |
+| Bangladesh | 5 classes | 35,2 % | 33,5 % | 12,9 % |
+
+Maladies **jamais vues** déclarées saines :
+
+| Maladie (Bangladesh) | n | binaire (équilibré) | 5 classes |
+|---|--:|--:|--:|
+| Point noir (épis) | 296 | 1,0 % | 34,8 % |
+| Pyriculariose (épis) | 291 | 0,0 % | 15,1 % |
+| Helminthosporiose (feuilles) | 356 | 0,0 % | 1,7 % |
+| Piétin fusarien (pied) | 247 | 0,0 % | 0,0 % |
+
+**Lecture.**
+
+- **Le modèle binaire fait ce qui était demandé.** Une maladie qu'il n'a jamais vue
+  n'est presque jamais déclarée saine : 0,3 % au Bangladesh, contre 12,9 % pour le
+  classifieur à 5 classes. En mode équilibré, ses « sains » sont justes à 91-98 % hors
+  domaine.
+- **Le classifieur à 5 classes ne peut pas jouer ce rôle.** Hors domaine, il ne dit
+  presque jamais « sain » (Éthiopie, YellowRust). Sur des maladies inconnues, il prend
+  le point noir pour un épi sain dans un cas sur trois.
+- **Pourquoi le binaire transfère-t-il bien mieux ?** Trois raisons probables :
+  - cinq fois plus de données ;
+  - deux sources et deux points de vue à l'entraînement ;
+  - une tâche plus simple, qui ne demande pas de distinguer les maladies entre elles.
+- **Le coût est connu : des sains déclarés malades**, la classe saine restant la plus
+  difficile à transférer. Le mode « sain très sûr » ne se trompe presque jamais, mais ne
+  reconnaît que 15 à 16 % des sains sur YellowRust et au Bangladesh, et 91 % en Éthiopie.
+  Le choix du seuil est un choix métier : combien d'images saines êtes-vous prêt à faire
+  revoir pour ne pas manquer une maladie ?
+- **Réserves.**
+  - Les scores internes (validation et test John Innes + Henan, 99,4 %) sont optimistes :
+    les séries de photos du Henan ne peuvent pas être regroupées sans EXIF.
+  - Au Bangladesh, l'appareil photo change selon la classe ; ce jeu ne sert qu'au test.
+  - Un seul entraînement a été réalisé, avec une seule graine.
+
+**Pour le vote à trois modèles** que vous envisagez, ce modèle apporte un avis
+réellement différent : autres données, autre tâche, et ses erreurs portent sur d'autres
+images. Pour une règle à la fois prudente et simple :
+
+1. une image n'est « saine » que si le modèle binaire le dit ;
+2. le classifieur à 5 classes ne sert alors qu'à nommer la maladie.
+
+Les deux combinaisons, vote à la majorité et règle prudente, pourront être mesurées sur
+les prédictions déjà enregistrées.
+
+**Reproduire.**
+
+```bash
+uv run agridrone data download henan_wheat_disease tekirdag_powdery_mildew bangladesh_wheat_disease
+uv run agridrone data prepare-classification --data-config configs/data/classification_binaire.yaml
+uv run agridrone train -c configs/classification/binaire_convnext_tiny.yaml num_workers=3 train.precision=fp32
+uv run agridrone evaluate --run runs/classification/<run> --out runs/classification/<run>/eval-strict eval.max_missed_rate=0.0
+```
+
+Run : `runs/classification/20261008-032124_binaire_convnext_tiny_421963dd` (commit
+`2b76b86`, empreinte `421963dd…`). La précision fp32 a été passée en ligne de commande :
+le processeur de cette session n'a pas d'AMX, et le bf16 y est émulé, trois fois plus
+lent.
 
 ## 2. Segmentation multispectrale (chantier 5)
 

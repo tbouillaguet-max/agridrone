@@ -107,7 +107,7 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : 
 | 1 | Inventaire et vérification des données | — (livrables : [reports/data_inventory.md](reports/data_inventory.md), [reports/data_requests.md](reports/data_requests.md)) | fait |
 | 2 | Pipeline de données : téléchargement vérifié, conversion, découpage par groupes, tuilage, augmentations, exploration | `agridrone data list\|download\|verify\|prepare-classification\|prepare-segmentation` ; [notebook](notebooks/01_exploration_donnees.ipynb) ; [reports/data_pipeline.md](reports/data_pipeline.md) | fait |
 | 3 | Baseline YOLO11n/s pucerons (RVB, petits objets, SAHI) | — | **reporté** (pucerons mis de côté) |
-| 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny), sortie « incertain », tests inter-sources | `agridrone train -c configs/classification/<modèle>.yaml`, `agridrone evaluate --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 1 | fait |
+| 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny), sortie « incertain », tests inter-sources ; modèle binaire sain / malade (§ 1.7) | `agridrone train -c configs/classification/<modèle>.yaml`, `agridrone evaluate --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 1 | fait |
 | 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu), ablation RVB | `agridrone train -c configs/segmentation/unet_5bandes.yaml` ; [reports/baseline_results.md](reports/baseline_results.md) § 2 | fait (aucun jeu public pour le blé : chaîne validée sur WeedsGalore, inventaire § 7.2) |
 | 6 | Rapport des baselines, export ONNX, temps d'inférence | `agridrone export --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 3 et 4 | fait (temps Jetson à mesurer sur la cible) |
 
@@ -127,6 +127,10 @@ Entraînement et évaluation (chantiers 4 et suivants) : la tâche est lue dans 
 uv run agridrone train -c configs/classification/efficientnet_b0.yaml num_workers=2
 uv run agridrone train -c configs/classification/convnext_tiny.yaml num_workers=2
 uv run agridrone evaluate --run runs/classification/<run> eval.target_coverage=0.8
+# modèle binaire sain / malade : jeu préparé à part, puis seuil « sain très sûr »
+uv run agridrone data prepare-classification --data-config configs/data/classification_binaire.yaml
+uv run agridrone train -c configs/classification/binaire_convnext_tiny.yaml num_workers=2
+uv run agridrone evaluate --run runs/classification/<run> eval.max_missed_rate=0.0
 uv run agridrone train -c configs/segmentation/unet_5bandes.yaml num_workers=2
 uv run agridrone export --run runs/segmentation/<run>     # ONNX + vérification + latences
 ```
