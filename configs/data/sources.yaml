@@ -72,6 +72,53 @@ sources:
         url: "https://www.kaggle.com/api/v1/datasets/download/shantkumar/yellowrust-2223-dataset?datasetVersionNumber=1"
         size: null
 
+  henan_wheat_disease:
+    title: "Wheat Dataset (Henan, Chine) : 7 classes de maladies du blé au champ"
+    task: classification
+    status: candidate
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-08"
+    attribution: >-
+      Ma C., Zhang H., Ma X., Wang J., Zhang Y., Zhang X. (2024). Method for the
+      lightweight detection of wheat disease using improved YOLOv8. Trans. Chin. Soc.
+      Agric. Eng. 40:187-195 ; données : Ma C., Wheat Dataset, doi:10.5281/zenodo.15621359
+    provider: zenodo
+    homepage: https://zenodo.org/records/15621359
+    notes: >-
+      Déposé par le premier auteur de l'article. Jeu de détection (boîtes YOLO) ; la
+      classe de chaque image est donnée par le préfixe du nom de fichier (LeafRust,
+      StripeRust, Powdery, Scab, Glume, WheatEar, WheatLeaf). Candidat tant que la
+      provenance des images (EXIF, doublons web) n'est pas contrôlée. Test seulement.
+    files:
+      - name: xiaomai.zip
+        url: "https://zenodo.org/api/records/15621359/files/xiaomai.zip/content"
+        size: 1105423868
+        md5: 368c8befb1ea26bdb37e4f50ddba43ea
+
+  tekirdag_powdery_mildew:
+    title: "Wheat Powdery Mildew Image Dataset (Tekirdağ, Turquie)"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-08"
+    attribution: >-
+      Önler E., Köycü N.D. (2024). Wheat Powdery Mildew Image Dataset. Tekirdağ Namık
+      Kemal University. Zenodo, doi:10.5281/zenodo.13137587
+    provider: zenodo
+    homepage: https://zenodo.org/records/13137587
+    notes: >-
+      Feuilles photographiées au smartphone, centrées sur les zones malades ; boîtes YOLO
+      d'une seule classe (oïdium). Toutes les images sont donc « oïdium ». Test seulement.
+    files:
+      - name: images-20240730T173242Z-001.zip
+        url: "https://zenodo.org/api/records/13137587/files/images-20240730T173242Z-001.zip/content"
+        size: 1314199435
+        md5: ec435e6787ddac439686cf521b00e6b1
+      - name: labels-20240730T174625Z-001.zip
+        url: "https://zenodo.org/api/records/13137587/files/labels-20240730T174625Z-001.zip/content"
+        size: 228858
+        md5: 77aa9ac86508956848fee8ad89c111df
+
   kaggle_wheat_leaf_dl:
     title: "Wheat Leaf Disease Dataset for DL Classification (Kaggle, yilikalfikru)"
     task: classification

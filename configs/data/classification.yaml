@@ -45,3 +45,29 @@ sources:
     mapping:
       healthy: healthy
       rust: yellow_rust
+
+  # Henan (Chine), photos smartphone au champ (Ma et al. 2024, candidate) : test
+  # inter-sources. Feuilles et épis sains -> sain ; fusariose (Scab) et septoriose de
+  # l'épi (Glume) sont hors de nos classes : écartées ici, analysées à part.
+  henan_wheat_disease:
+    root: "xiaomai/xiaomai/images"
+    label_from: filename_prefix
+    role: test
+    mapping:
+      WheatLeaf: healthy
+      WheatEar: healthy
+      StripeRust: yellow_rust
+      LeafRust: brown_rust
+      Powdery: powdery_mildew
+      Scab: ignore
+      Glume: ignore
+
+  # Tekirdağ (Turquie), feuilles d'oïdium au smartphone (Önler & Köycü 2024) : test.
+  # Les dossiers train/val/test d'origine sont ignorés (toutes les images : oïdium).
+  tekirdag_powdery_mildew:
+    root: "images-20240730T173242Z-001/images"
+    role: test
+    mapping:
+      train: powdery_mildew
+      val: powdery_mildew
+      test: powdery_mildew
