@@ -188,6 +188,11 @@ def _cmd_data_list(args: argparse.Namespace) -> int:
             f"{source_id:32s} {src.project:5s} {src.status:9s} {src.license:22s} "
             f"{src.task:14s} {shown} {'téléchargé' if present else ''}"
         )
+        if args.files:
+            for f in src.files:
+                known = f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size")
+                print(f"    {f.name}  ({known / 1e9:.2f} Go)" if known else f"    {f.name}")
+                print(f"      {f.url}")
     for status, total in totals.items():
         note = " (+ tailles inconnues avant le premier téléchargement)" if status in unknown else ""
         print(f"Total {status} : {total / 1e9:.2f} Go d'archives{note}")
@@ -335,6 +340,8 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument(
                 "--project", choices=["wheat", "olive"], help="blé ou olivier (défaut : les deux)"
             )
+        if name == "list":
+            p.add_argument("--files", action="store_true", help="liens directs de chaque fichier")
         if name == "download":
             p.add_argument("ids", nargs="*", help="sources (défaut : toutes les retenues)")
             p.add_argument("--include-candidates", action="store_true")
