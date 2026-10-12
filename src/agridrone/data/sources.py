@@ -8,8 +8,8 @@
 * Quand le fournisseur ne publie pas d'empreinte (Kaggle, GFZ), le premier
   téléchargement l'enregistre dans ``sources.lock.yaml`` (versionné) ; les suivants
   sont vérifiés contre elle.
-* :func:`extract_archive` extrait ZIP et RAR en refusant les chemins absolus, les
-  remontées ``..`` et les liens symboliques.
+* :func:`extract_archive` extrait ZIP, RAR et TAR (``.tar``, ``.tar.gz``, ``.tgz``) en
+  refusant les chemins absolus, les remontées ``..`` et les liens symboliques.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ import json
 import os
 import shutil
 import subprocess
+import tarfile
 import zipfile
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
@@ -80,30 +81,71 @@ class SourceFile(BaseModel):
 Project = Literal["wheat", "olive"]
 
 
+Status = Literal["retained", "candidate", "noncommercial", "manual", "excluded"]
+
+#: Statuts dont les fichiers sont téléchargés par défaut (aucune option à passer : une
+#: expérience doit se reproduire telle quelle).
+DOWNLOADABLE: frozenset[str] = frozenset({"retained", "candidate", "noncommercial"})
+
+#: Libellés des statuts dans ``LICENCES_DONNEES.txt``.
+STATUS_LABELS: dict[str, tuple[str, str]] = {
+    "retained": (
+        "libre",
+        "licence permissive (CC BY, CC0, MIT...) : réutilisation possible, même commerciale",
+    ),
+    "candidate": (
+        "à confirmer",
+        "licence permissive déclarée par le déposant, provenance à confirmer",
+    ),
+    "noncommercial": (
+        "non commercial",
+        "licence non commerciale ou inconnue : usage académique non commercial seulement",
+    ),
+    "manual": (
+        "manuel",
+        "à télécharger à la main (formulaire, compte, accord ou dépôt qui refuse les robots)",
+    ),
+    "excluded": ("écarté", "non téléchargé (re-publication ou compilation d'autres jeux)"),
+}
+
+
 class Source(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str
     project: Project
-    task: Literal["classification", "detection", "segmentation"]
-    status: Literal["retained", "candidate", "excluded"]
+    task: Literal["classification", "detection", "segmentation", "regression"]
+    status: Status
     license: str
     license_evidence: str
     attribution: str
-    provider: Literal["zenodo", "mendeley", "kaggle", "gfz", "url"]
+    provider: Literal["zenodo", "mendeley", "kaggle", "gfz", "dataverse", "s3", "url"]
     homepage: str
+    #: Conditions d'utilisation acceptées en téléchargeant (contrat, et non simple licence).
+    terms: str | None = None
     notes: str = ""
     files: list[SourceFile] = Field(default_factory=list)
+
+    @property
+    def downloadable(self) -> bool:
+        return self.status in DOWNLOADABLE
 
     @model_validator(mode="after")
     def _check_status(self) -> Source:
         if self.status == "retained" and self.license not in COMMERCIAL_LICENSES:
             raise ValueError(
-                f"licence {self.license!r} incompatible avec le statut 'retained' "
-                f"(autorisées : {', '.join(sorted(COMMERCIAL_LICENSES))})"
+                f"licence {self.license!r} non permissive : statut 'noncommercial', "
+                f"pas 'retained' (permissives : {', '.join(sorted(COMMERCIAL_LICENSES))})"
             )
-        if self.status != "excluded" and not self.files:
+        if self.status == "noncommercial" and self.license in COMMERCIAL_LICENSES:
+            raise ValueError(
+                f"licence {self.license!r} permissive : statut 'retained' ou 'candidate', "
+                "pas 'noncommercial'"
+            )
+        if self.downloadable and not self.files:
             raise ValueError("une source téléchargeable doit lister ses fichiers")
+        if not self.downloadable and self.files:
+            raise ValueError(f"statut {self.status!r} : aucun fichier à télécharger attendu")
         return self
 
 
@@ -113,26 +155,95 @@ class Registry(BaseModel):
     sources: dict[str, Source]
 
     def selected(
-        self, ids: list[str] | None, include_candidates: bool, project: Project | None = None
+        self, ids: list[str] | None = None, project: Project | None = None
     ) -> dict[str, Source]:
-        """Sources à traiter : ``ids`` explicites, sinon toutes les ``retained``
-        (plus les ``candidate`` si demandé), éventuellement limitées à un ``project``.
-        Une source exclue n'est jamais renvoyée."""
+        """Sources à télécharger : ``ids`` explicites, sinon toutes les sources
+        téléchargeables, quelle que soit leur licence, éventuellement limitées à un
+        ``project``. Les sources « manuel » et « écarté » n'ont pas de fichier."""
         if ids:
             unknown = [i for i in ids if i not in self.sources]
             if unknown:
                 raise ConfigError(f"Sources inconnues : {', '.join(unknown)}")
             chosen = {i: self.sources[i] for i in ids}
-            excluded = [i for i, s in chosen.items() if s.status == "excluded"]
-            if excluded:
-                raise ConfigError(f"Sources exclues, non téléchargeables : {', '.join(excluded)}")
+            manual = [i for i, s in chosen.items() if not s.downloadable]
+            if manual:
+                raise ConfigError(
+                    f"Sources sans téléchargement automatique : {', '.join(manual)} "
+                    "(voir LICENCES_DONNEES.txt)"
+                )
             return chosen
-        allowed = {"retained", "candidate"} if include_candidates else {"retained"}
         return {
             i: s
             for i, s in self.sources.items()
-            if s.status in allowed and (project is None or s.project == project)
+            if s.downloadable and (project is None or s.project == project)
         }
+
+
+PROJECT_TITLES: dict[str, str] = {"wheat": "BLÉ", "olive": "OLIVIER"}
+
+
+def licence_report(registry: Registry, lock: LockFile | None = None) -> str:
+    """Texte de ``LICENCES_DONNEES.txt`` : statut, licence, conditions et attribution de
+    chaque source, groupées par projet. Déterministe (aucune date) pour être versionné."""
+    import textwrap
+
+    def field(label: str, text: str) -> list[str]:
+        return textwrap.wrap(
+            " ".join(text.split()),
+            width=92,
+            initial_indent=f"  {label:<11} : ",
+            subsequent_indent=" " * 16,
+            break_on_hyphens=False,
+            break_long_words=False,
+        )
+
+    lines = [
+        "LICENCES DES DONNÉES (agridrone)",
+        "================================",
+        "",
+        "Usage : projet académique, non commercial (confirmé le 12 octobre 2026).",
+        "Toutes les sources téléchargeables sont récupérées par défaut :",
+        "    uv run agridrone data download",
+        "",
+        "Fichier généré depuis configs/data/sources.yaml par `uv run agridrone data licences` :",
+        "ne pas le modifier à la main.",
+        "",
+        "Statuts",
+        "-------",
+    ]
+    lines += [f"  {label:<15} {text}" for label, text in STATUS_LABELS.values()]
+    lines += [
+        "",
+        "Si le projet devenait commercial : ne garder que les sources « libre » (et « à",
+        "confirmer » une fois la provenance établie), puis réentraîner les modèles sans les",
+        "autres. Les licences CC BY imposent de citer les auteurs (ligne « Citer »).",
+    ]
+    for project, title in PROJECT_TITLES.items():
+        sources = {k: s for k, s in registry.sources.items() if s.project == project}
+        lines += ["", "", title, "=" * len(title)]
+        if not sources:
+            lines += ["", "  (aucune source pour l'instant)"]
+        for source_id, src in sources.items():
+            sizes = [
+                f.size or ((lock.get(f"{source_id}/{f.name}") or {}).get("size") if lock else None)
+                for f in src.files
+            ]
+            lines += ["", f"{source_id} : {src.title}"]
+            lines += field("Statut", STATUS_LABELS[src.status][0])
+            lines += field("Licence", f"{src.license} ({src.license_evidence})")
+            if src.terms:
+                lines += field("Conditions", src.terms)
+            lines += field("Citer", src.attribution)
+            lines += field("Lien", src.homepage)
+            if src.files:
+                total = sum(s or 0 for s in sizes) / 1e9
+                size = f"{total:.2f} Go".replace(".", ",")
+                if None in sizes:
+                    size += " (+ fichiers de taille inconnue avant le premier téléchargement)"
+                lines += field("Taille", f"{size}, {len(src.files)} fichier(s)")
+            if src.notes:
+                lines += field("Remarque", src.notes)
+    return "\n".join(lines) + "\n"
 
 
 def load_registry(path: str | Path) -> Registry:
@@ -394,6 +505,25 @@ def _extract_rar(archive: Path, dest: Path) -> None:
             raise UnsafeArchiveError(f"chemin refusé après extraction : {path}")
 
 
+def _extract_tar(archive: Path, dest: Path) -> None:
+    # Lecture en flux (une seule passe, même pour une archive .tar.gz de plusieurs dizaines
+    # de Go) ; le filtre « data » refuse chemins absolus, remontées ``..``, liens sortant
+    # de ``dest`` et fichiers spéciaux. La taille extraite n'étant connue qu'en fin de
+    # lecture, l'espace libre est contrôlé avec la taille de l'archive (borne basse).
+    _check_free_space(archive.stat().st_size, dest)
+    with tarfile.open(archive, mode="r|*") as tf:
+        for member in tf:
+            _check_member(member.name)
+            if member.issym() or member.islnk():
+                raise UnsafeArchiveError(f"lien refusé : {member.name!r}")
+            tf.extract(member, dest, filter="data")
+
+
+def is_tar(path: Path) -> bool:
+    name = path.name.lower()
+    return name.endswith((".tar", ".tar.gz", ".tgz"))
+
+
 def _check_free_space(needed: int, dest: Path) -> None:
     free = shutil.disk_usage(dest).free
     if needed > 0.95 * free:
@@ -420,6 +550,8 @@ def extract_archive(archive: Path, dest: Path, include: Sequence[str] | None = N
             _extract_zip(archive, tmp, include)
         elif include is not None:
             raise ValueError(f"{archive.name} : extract_only n'est pris en charge que pour les ZIP")
+        elif is_tar(archive):
+            _extract_tar(archive, tmp)
         elif archive.suffix.lower() == ".rar":
             _extract_rar(archive, tmp)
         else:
@@ -433,8 +565,18 @@ def extract_archive(archive: Path, dest: Path, include: Sequence[str] | None = N
     return dest
 
 
+def archive_stem(path: Path) -> str:
+    """Nom du dossier d'extraction : le nom de l'archive sans ``.zip``, ``.rar``, ``.tar``,
+    ``.tar.gz`` ni ``.tgz``."""
+    name = path.name
+    for suffix in (".tar.gz", ".tgz", ".tar", ".zip", ".rar"):
+        if name.lower().endswith(suffix):
+            return name[: -len(suffix)]
+    return path.stem
+
+
 def is_archive(path: Path) -> bool:
-    return path.suffix.lower() in {".zip", ".rar"}
+    return path.suffix.lower() in {".zip", ".rar"} or is_tar(path)
 
 
 def fetch_source(
@@ -457,6 +599,8 @@ def fetch_source(
         for spec, result in zip(source.files, results, strict=True):
             if is_archive(result.path):
                 extract_archive(
-                    result.path, interim_dir / source_id / result.path.stem, spec.extract_only
+                    result.path,
+                    interim_dir / source_id / archive_stem(result.path),
+                    spec.extract_only,
                 )
     return results

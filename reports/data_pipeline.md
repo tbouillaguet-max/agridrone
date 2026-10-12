@@ -5,7 +5,7 @@ restent hors de git (`data/`), les décisions et empreintes sont versionnées._
 
 ```bash
 uv run agridrone data list                          # sources, statut, licence
-uv run agridrone data download --include-candidates # téléchargement vérifié + extraction
+uv run agridrone data download                      # tout ce qui est téléchargeable
 uv run agridrone data verify                        # revérifie les empreintes
 uv run agridrone data prepare-classification        # maladies du blé, dossiers par classe
 uv run agridrone data prepare-segmentation          # multispectral N bandes + tuilage
@@ -26,10 +26,30 @@ fichiers sans somme publiée : [`configs/data/sources.lock.yaml`](../configs/dat
 | John Innes Centre, 999 images | retenue | CC BY 4.0 | entraînement chantier 4 | md5 publié (Zenodo) |
 | Feuilles de blé, Éthiopie | retenue | CC BY 4.0 | test inter-sources | sha256 publié (Mendeley) |
 | YellowRust_22-23 (Kaggle) | candidate | CDLA-Permissive-1.0 | test inter-sources | sha256 enregistré au 1er téléchargement |
-| Henan, Chine (Zenodo 15621359, ajout du 8 oct.) | candidate | CC BY 4.0 | test inter-sources | md5 publié (Zenodo) |
+| Henan, Chine (Zenodo 15621359, ajout du 8 oct.) | retenue (depuis le 8 oct.) | CC BY 4.0 | test inter-sources, puis entraînement du modèle binaire | md5 publié (Zenodo) |
 | Tekirdağ, Turquie (Zenodo 13137587, ajout du 8 oct.) | retenue | CC BY 4.0 | test inter-sources (oïdium) | md5 publié (Zenodo) |
 | WeedsGalore | retenue | CC BY 4.0 | chaîne N bandes (chantier 5) | taille + sha256 enregistré |
 | Maïs, stress hydrique et rouille (Turquie) | retenue | CC BY 4.0 | lecture et tuilage | md5 publiés (Zenodo) |
+
+**Mise à jour du 12 octobre 2026 : projet académique, non commercial.** Les jeux sous
+licence non commerciale ou inconnue entrent au registre avec le statut `noncommercial` et
+sont téléchargés **par défaut**, comme les autres : `uv run agridrone data download` suffit
+pour reproduire une expérience. Le statut décrit la licence, il ne bloque plus rien (ni le
+téléchargement ni l'entraînement). Ajouts :
+
+| Source | Statut | Licence | Taille |
+|---|---|---|---|
+| INRAE, *Cereals.Multi_Cla_Field_LeafFragments* (Bretagne 2024), archive du blé | non commercial | CC BY-NC | 3,63 Go, md5 publiés (Dataverse) |
+| Yellow-Rust-19 (Kaggle, Hayit et al.) | non commercial | « Unknown » | 1,55 Go déclarés ; sha256 enregistré au 1er téléchargement |
+| Agriculture-Vision 2021 (IntelinAir) | non commercial | conditions d'utilisation (recherche non commerciale, pas de redistribution) | 21,0 Go (.tar.gz) |
+| Blé de printemps, Brésil (Mendeley, biomasse) | non commercial | CC BY-NC 3.0 | 1,30 Go, 135 fichiers, sha256 publiés |
+
+Sources à télécharger à la main (statut `manual`, liens dans
+[`LICENCES_DONNEES.txt`](../LICENCES_DONNEES.txt)) : WFD2020 (formulaire), WeedMap
+(dépôt de l'ETH qui refuse les accès automatisés), ETH Zurich 2026 (406 Go en WebDAV),
+StripeRust-Pocket (accord à signer), CGIAR / Zindi (compte). Le code extrait désormais
+aussi les archives `.tar`, `.tar.gz` et `.tgz` (filtre « data » de Python : ni chemin
+absolu, ni `..`, ni lien).
 
 **Exclues après inspection du contenu** (décision tracée dans le registre) :
 
@@ -183,5 +203,6 @@ proche de 0, avec un alpha nul). La validité est donc prise sur le canal alpha,
 - **John Innes est petit** (999 images). Le jeu complet de 19 172 images est disponible sur
   demande, si la démarche devient possible un jour.
 - **YellowRust_22-23** reste « candidate » (provenance non confirmée par l'auteur) : il sert
-  de test et n'entre jamais dans l'entraînement.
+  de test. Depuis le 12 octobre, un statut autre que « libre » n'empêche plus de
+  l'entraînement : `prepare-classification` affiche seulement une remarque.
 - La conversion YOLO (détection) est reportée avec les pucerons.

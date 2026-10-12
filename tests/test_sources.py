@@ -162,25 +162,97 @@ def test_fetch_source_downloads_extracts_and_writes_manifest(
 
 
 def test_registry_rules() -> None:
-    with pytest.raises(ValueError, match="incompatible"):
+    with pytest.raises(ValueError, match="non permissive"):
         _source([SourceFile(name="a", url="http://x")], license="CC-BY-NC-4.0")
+    with pytest.raises(ValueError, match="permissive : statut"):
+        _source([SourceFile(name="n", url="http://x")], status="noncommercial")
     with pytest.raises(ValueError, match="lister ses fichiers"):
         _source([])
+    with pytest.raises(ValueError, match="aucun fichier"):
+        _source([SourceFile(name="a", url="http://x")], status="manual", license="x")
     assert _source([], status="excluded", license="LicenseRef-x").status == "excluded"
     with pytest.raises(ValueError, match="nom de fichier"):
         SourceFile(name="../a.zip", url="http://x")
 
+
+def test_everything_downloadable_is_selected_by_default() -> None:
+    # Projet académique : aucune option à passer pour reproduire une expérience.
     registry = Registry(
         sources={
             "ok": _source([SourceFile(name="a", url="http://x")]),
             "cand": _source([SourceFile(name="b", url="http://x")], status="candidate"),
+            "nc": _source(
+                [SourceFile(name="n", url="http://x")],
+                status="noncommercial",
+                license="CC-BY-NC-4.0",
+            ),
+            "form": _source([], status="manual", license="LicenseRef-x"),
             "ko": _source([], status="excluded", license="LicenseRef-x"),
         }
     )
-    assert list(registry.selected(None, include_candidates=False)) == ["ok"]
-    assert list(registry.selected(None, include_candidates=True)) == ["ok", "cand"]
-    with pytest.raises(ConfigError, match="exclues"):
-        registry.selected(["ko"], include_candidates=False)
+    assert list(registry.selected()) == ["ok", "cand", "nc"]
+    assert list(registry.selected(["nc"])) == ["nc"]
+    with pytest.raises(ConfigError, match="sans téléchargement automatique"):
+        registry.selected(["form"])
+    with pytest.raises(ConfigError, match="inconnues"):
+        registry.selected(["nope"])
+
+
+def test_licence_report_lists_every_source_by_project() -> None:
+    from agridrone.data.sources import licence_report
+
+    registry = Registry(
+        sources={
+            "ble": _source([SourceFile(name="a", url="http://x", size=2_500_000_000)]),
+            "olive_nc": _source(
+                [SourceFile(name="b", url="http://x")],
+                project="olive",
+                status="noncommercial",
+                license="CC-BY-NC-4.0",
+                terms="https://example.invalid/terms.pdf",
+            ),
+        }
+    )
+    text = licence_report(registry)
+    assert text.index("BLÉ") < text.index("ble : test") < text.index("OLIVIER")
+    assert text.index("OLIVIER") < text.index("olive_nc : test")
+    assert "non commercial" in text and "https://example.invalid/terms.pdf" in text
+    assert "2,50 Go, 1 fichier(s)" in text and "taille inconnue" in text
+    assert licence_report(registry) == text  # déterministe : versionnable
+
+
+def test_extract_tar_gz_is_safe(tmp_path: Path) -> None:
+    import io
+    import tarfile
+
+    from agridrone.data.sources import archive_stem, is_archive
+
+    def add(tf: tarfile.TarFile, name: str, data: bytes = b"x") -> None:
+        info = tarfile.TarInfo(name)
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+
+    archive = tmp_path / "jeu-2021.tar.gz"
+    with tarfile.open(archive, "w:gz") as tf:
+        add(tf, "jeu/train/images/a.jpg", b"image")
+        add(tf, "jeu/train/labels/a.png", b"masque")
+    assert is_archive(archive) and archive_stem(archive) == "jeu-2021"
+    dest = extract_archive(archive, tmp_path / "out")
+    assert (dest / "jeu" / "train" / "images" / "a.jpg").read_bytes() == b"image"
+    assert extract_archive(archive, tmp_path / "out") == dest  # idempotent
+
+    for bad, kind in (("../evil.txt", None), ("lien", tarfile.SYMTYPE)):
+        evil = tmp_path / "evil.tar"
+        with tarfile.open(evil, "w") as tf:
+            if kind is None:
+                add(tf, bad)
+            else:
+                info = tarfile.TarInfo(bad)
+                info.type, info.linkname = kind, "/etc/passwd"
+                tf.addfile(info)
+        with pytest.raises(UnsafeArchiveError):
+            extract_archive(evil, tmp_path / f"evil_out_{bad[-4:]}")
+        assert not (tmp_path / f"evil_out_{bad[-4:]}").exists()
 
 
 def test_registry_selects_by_project() -> None:
@@ -193,10 +265,9 @@ def test_registry_selects_by_project() -> None:
             ),
         }
     )
-    assert list(registry.selected(None, False)) == ["ble", "olive"]
-    assert list(registry.selected(None, False, "olive")) == ["olive"]
-    assert list(registry.selected(None, True, "olive")) == ["olive", "olive_cand"]
-    assert list(registry.selected(None, True, "wheat")) == ["ble"]
+    assert list(registry.selected()) == ["ble", "olive", "olive_cand"]
+    assert list(registry.selected(None, "olive")) == ["olive", "olive_cand"]
+    assert list(registry.selected(None, "wheat")) == ["ble"]
     with pytest.raises(ValueError):
         _source([SourceFile(name="a", url="http://x")], project="vigne")
 
@@ -227,9 +298,22 @@ def test_repository_registry_is_valid(repo_root: Path) -> None:
     retained = {k: s for k, s in registry.sources.items() if s.status == "retained"}
     assert retained, "au moins une source retenue"
     assert all(s.license in COMMERCIAL_LICENSES for s in retained.values())
-    for source in registry.sources.values():
+    for source_id, source in registry.sources.items():
+        names = [f.name for f in source.files]
+        assert len(names) == len(set(names)), source_id
         for f in source.files:
             assert f.url.startswith("https://")
+
+
+def test_licence_file_is_up_to_date(repo_root: Path) -> None:
+    from agridrone.data.sources import licence_report
+
+    registry = load_registry(repo_root / "configs" / "data" / "sources.yaml")
+    lock = LockFile(repo_root / "configs" / "data" / "sources.lock.yaml")
+    committed = (repo_root / "LICENCES_DONNEES.txt").read_text(encoding="utf-8")
+    assert committed == licence_report(registry, lock), (
+        "LICENCES_DONNEES.txt n'est plus à jour : uv run agridrone data licences"
+    )
 
 
 def test_extract_only_keeps_matching_members(tmp_path: Path) -> None:

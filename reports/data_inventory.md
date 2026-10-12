@@ -40,6 +40,11 @@ métadonnées, des README, des conditions d'utilisation et des articles ont ét�
 (research-collection.ethz.ch) limite le nombre de requêtes (HTTP 429), et MDPI bloque les
 accès automatisés (403). Les licences de ces deux sources ont été vérifiées via DataCite.
 
+> **Mise à jour du 12 octobre 2026.** Le projet est académique et non commercial : les
+> jeux sous licence non commerciale sont désormais téléchargés et utilisés comme les
+> autres. Le classement ci-dessous reste utile si le projet devenait commercial. Statut
+> de chaque jeu : [`LICENCES_DONNEES.txt`](../LICENCES_DONNEES.txt).
+
 **Licence et usage commercial futur :**
 
 - **CC BY 4.0 et CC0** : compatibles avec un usage commercial. CC BY impose l'attribution :

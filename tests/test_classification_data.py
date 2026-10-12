@@ -12,7 +12,6 @@ from agridrone.data.classification import (
     SourceSpec,
     add_fingerprints,
     assign_splits,
-    check_training_sources,
     materialize,
     raw_label,
     scan_sources,
@@ -193,11 +192,10 @@ def test_test_source_never_changes_train_groups() -> None:
     )
 
 
-def test_training_sources_must_be_retained(cfg: ClassificationDataConfig) -> None:
-    from agridrone.core.config import ConfigError
+def test_training_sources_are_never_blocked(cfg: ClassificationDataConfig) -> None:
+    from agridrone.data.classification import training_source_notes
 
-    check_training_sources(cfg, {"train_src": "retained", "test_src": "candidate"})
-    with pytest.raises(ConfigError, match="train_src"):
-        check_training_sources(cfg, {"train_src": "candidate", "test_src": "retained"})
-    with pytest.raises(ConfigError, match="absente"):
-        check_training_sources(cfg, {})
+    assert training_source_notes(cfg, {"train_src": "retained", "test_src": "candidate"}) == []
+    notes = training_source_notes(cfg, {"train_src": "noncommercial", "test_src": "retained"})
+    assert len(notes) == 1 and "train_src" in notes[0] and "non commerciale" in notes[0]
+    assert "absente" in training_source_notes(cfg, {})[0]

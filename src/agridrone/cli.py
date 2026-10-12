@@ -36,6 +36,7 @@ import yaml
 DEFAULT_CONFIG = "configs/base.yaml"
 DEFAULT_REGISTRY = "configs/data/sources.yaml"
 DEFAULT_LOCK = "configs/data/sources.lock.yaml"
+DEFAULT_LICENCES = "LICENCES_DONNEES.txt"
 
 
 def _positive_int(text: str) -> int:
@@ -172,20 +173,20 @@ def _cmd_data_list(args: argparse.Namespace) -> int:
             continue
         sizes = [f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size") for f in src.files]
         size = sum(s or 0 for s in sizes)
-        if src.status != "excluded":
+        if src.downloadable:
             totals[src.status] = totals.get(src.status, 0.0) + size
             if None in sizes:
                 unknown.add(src.status)
         present = all((raw_dir / source_id / f.name).exists() for f in src.files) and src.files
         shown = (
             "     — Go"
-            if src.status == "excluded"
+            if not src.downloadable
             else f"{size / 1e9:6.2f} Go"
             if None not in sizes
             else "     ? Go"
         )
         print(
-            f"{source_id:32s} {src.project:5s} {src.status:9s} {src.license:22s} "
+            f"{source_id:32s} {src.project:5s} {src.status:13s} {src.license:34s} "
             f"{src.task:14s} {shown} {'téléchargé' if present else ''}"
         )
         if args.files:
@@ -196,6 +197,18 @@ def _cmd_data_list(args: argparse.Namespace) -> int:
     for status, total in totals.items():
         note = " (+ tailles inconnues avant le premier téléchargement)" if status in unknown else ""
         print(f"Total {status} : {total / 1e9:.2f} Go d'archives{note}")
+    print(f"Total téléchargé par défaut : {sum(totals.values()) / 1e9:.2f} Go d'archives")
+    return 0
+
+
+def _cmd_data_licences(args: argparse.Namespace) -> int:
+    from agridrone.core.paths import resolve_path
+    from agridrone.data.sources import licence_report
+
+    registry, lock, _, _ = _data_context(args)
+    out = resolve_path(args.out)
+    out.write_text(licence_report(registry, lock), encoding="utf-8")
+    print(f"Statuts et licences écrits dans {out}")
     return 0
 
 
@@ -205,9 +218,10 @@ def _cmd_data_download(args: argparse.Namespace) -> int:
     registry, lock, raw_dir, interim_dir = _data_context(args)
     lock.prune(registry)
     failures: dict[str, str] = {}
-    selected = registry.selected(args.ids, args.include_candidates, args.project)
-    for source_id, src in selected.items():
+    for source_id, src in registry.selected(args.ids, args.project).items():
         print(f"[{source_id}] {src.title} ({src.license}, {src.status})", flush=True)
+        if src.terms:
+            print(f"   conditions d'utilisation : {src.terms}", flush=True)
         try:
             results = fetch_source(
                 source_id,
@@ -254,17 +268,19 @@ def _cmd_data_prepare_classification(args: argparse.Namespace) -> int:
     from agridrone.core.config import load_experiment
     from agridrone.core.paths import resolve_path
     from agridrone.data.classification import (
-        check_training_sources,
         load_classification_config,
         prepare_classification,
         summarize,
+        training_source_notes,
     )
     from agridrone.data.sources import load_registry
 
     cfg = load_experiment(resolve_path(args.config))
     data_cfg = load_classification_config(resolve_path(args.data_config))
     registry = load_registry(resolve_path(args.registry))
-    check_training_sources(data_cfg, {k: v.status for k, v in registry.sources.items()})
+    statuses = {k: v.status for k, v in registry.sources.items()}
+    for note in training_source_notes(data_cfg, statuses):
+        print(f"Remarque : {note} (voir LICENCES_DONNEES.txt)")
     out_dir = resolve_path(cfg.paths.processed) / data_cfg.name
     df = prepare_classification(data_cfg, resolve_path(cfg.paths.interim), out_dir)
     summary = summarize(df)
@@ -331,6 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("list", _cmd_data_list, "sources du registre"),
         ("download", _cmd_data_download, "télécharge, vérifie et extrait"),
         ("verify", _cmd_data_verify, "revérifie les fichiers téléchargés"),
+        ("licences", _cmd_data_licences, f"écrit {DEFAULT_LICENCES} (statuts, licences)"),
     ):
         p = data_sub.add_parser(name, help=help_)
         p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
@@ -340,11 +357,15 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument(
                 "--project", choices=["wheat", "olive"], help="blé ou olivier (défaut : les deux)"
             )
+        if name == "licences":
+            p.add_argument("--out", default=DEFAULT_LICENCES, help="fichier texte à écrire")
         if name == "list":
             p.add_argument("--files", action="store_true", help="liens directs de chaque fichier")
         if name == "download":
             p.add_argument("ids", nargs="*", help="sources (défaut : toutes les retenues)")
-            p.add_argument("--include-candidates", action="store_true")
+            # Sans effet : tout ce qui est téléchargeable l'est par défaut. Gardée pour que
+            # les anciennes commandes (rapports, notes) fonctionnent encore.
+            p.add_argument("--include-candidates", action="store_true", help=argparse.SUPPRESS)
             p.add_argument("--no-extract", action="store_true", help="ne pas extraire les archives")
     p = data_sub.add_parser("prepare-classification", help="jeu « dossiers par classe »")
     p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")

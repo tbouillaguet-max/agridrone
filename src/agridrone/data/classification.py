@@ -30,6 +30,7 @@ import os
 import re
 import shutil
 from collections import Counter
+from collections.abc import Mapping
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
@@ -95,19 +96,25 @@ class ClassificationDataConfig(BaseModel):
         return self
 
 
-def check_training_sources(cfg: ClassificationDataConfig, statuses: dict[str, str]) -> None:
-    """Refuse une source d'entraînement dont le statut au registre n'est pas ``retained``
-    (provenance non confirmée : test seulement)."""
-    bad = {
-        source_id: statuses.get(source_id, "absente du registre")
-        for source_id, spec in cfg.sources.items()
-        if spec.role == "train" and statuses.get(source_id) != "retained"
+def training_source_notes(cfg: ClassificationDataConfig, statuses: Mapping[str, str]) -> list[str]:
+    """Remarques sur les sources d'entraînement dont le statut au registre n'est pas
+    « libre » (provenance à confirmer, licence non commerciale, absente du registre).
+    Elles sont seulement affichées : l'entraînement n'est jamais bloqué, pour qu'une
+    expérience se reproduise sans changer de paramètre (projet académique)."""
+    meaning = {
+        "candidate": "provenance à confirmer",
+        "noncommercial": "licence non commerciale : usage académique seulement",
     }
-    if bad:
-        raise ConfigError(
-            "sources d'entraînement non retenues au registre (test seulement) : "
-            + ", ".join(f"{k} ({v})" for k, v in bad.items())
+    notes = []
+    for source_id, spec in cfg.sources.items():
+        status = statuses.get(source_id)
+        if spec.role != "train" or status == "retained":
+            continue
+        reason = (
+            meaning.get(status or "", f"statut {status!r}") if status else "absente du registre"
         )
+        notes.append(f"source d'entraînement {source_id} : {reason}")
+    return notes
 
 
 def load_classification_config(path: str | Path) -> ClassificationDataConfig:

@@ -304,7 +304,7 @@ confirmer sa provenance avant d'entraîner dessus.
 **Reproduire.**
 
 ```bash
-uv run agridrone data download henan_wheat_disease tekirdag_powdery_mildew --include-candidates
+uv run agridrone data download henan_wheat_disease tekirdag_powdery_mildew
 uv run agridrone data prepare-classification
 uv run agridrone evaluate --run runs/classification/<run> --out runs/classification/<run>/eval-nouveaux-tests \
   "data.test_splits=[test,test_ethiopia_wheat_leaf,test_kaggle_yellowrust_2223,test_henan_wheat_disease,test_tekirdag_powdery_mildew]" \

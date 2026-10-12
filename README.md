@@ -75,6 +75,56 @@ uv run agridrone smoke      # run de vérification de bout en bout (voir plus ba
   ci-dessus pour CUDA.
 - **CPU seul** : fonctionne tel quel (wheel plus lourde que nécessaire, sans gêne).
 
+## Télécharger toutes les données sur votre PC
+
+Le registre [`configs/data/sources.yaml`](configs/data/sources.yaml) liste chaque jeu
+avec ses liens, tailles et sommes de contrôle. Une commande télécharge, vérifie et extrait
+**tout ce qui est téléchargeable**, quelle que soit la licence (projet académique non
+commercial) : aucune option n'est nécessaire pour reproduire une expérience. Statut,
+licence et attribution de chaque jeu : [`LICENCES_DONNEES.txt`](LICENCES_DONNEES.txt).
+
+1. **Installer** [Git](https://git-scm.com/downloads), [uv](https://docs.astral.sh/uv/getting-started/installation/)
+   et un outil RAR pour l'archive d'Éthiopie :
+   - **Windows** : [7-Zip](https://www.7-zip.org) (trouvé automatiquement dans
+     `Program Files`) ; activer les chemins longs si l'extraction échoue
+     (« Enable Win32 long paths »), ou cloner dans un dossier court comme `C:\agridrone` ;
+   - **macOS** : `brew install unar` ;
+   - **Linux** : `sudo apt install unar`.
+2. **Récupérer le projet** (dépôt privé : se connecter à GitHub) :
+   ```bash
+   git clone https://github.com/tbouillaguet-max/Drone.git agridrone
+   cd agridrone
+   git checkout claude/gifted-heisenberg-uedia8
+   uv sync          # installe aussi PyTorch (quelques Go)
+   ```
+3. **Télécharger** :
+   ```bash
+   uv run agridrone data list                    # jeux, statut, licence, taille
+   uv run agridrone data download                # tout (blé et olivier)
+   uv run agridrone data download --project wheat   # ou un seul projet (wheat, olive)
+   uv run agridrone data download --no-extract   # archives seules, sans extraction
+   uv run agridrone data verify                  # revérifie les sommes de contrôle
+   ```
+   La commande reprend là où elle s'est arrêtée : un fichier déjà présent et conforme
+   n'est pas retéléchargé. Les jeux marqués « manuel » (formulaire, compte, accord, ou
+   dépôt qui refuse les accès automatisés) sont listés avec leur lien dans
+   `LICENCES_DONNEES.txt`.
+
+**Espace disque.** Blé : 36,8 Go d'archives, plus Yellow-Rust-19 dont Kaggle ne donne la
+taille qu'au téléchargement (1,55 Go déclarés). Compter environ deux fois plus avec les
+extractions (environ 80 Go), dont 42 Go pour Agriculture-Vision seul. Pour mettre les
+données sur un autre disque, créer `configs/local.yaml` :
+
+```yaml
+_base_: base.yaml
+paths: {raw: "D:/agridrone/raw", interim: "D:/agridrone/interim", processed: "D:/agridrone/processed"}
+```
+
+puis ajouter `-c configs/local.yaml` à chaque commande `data`.
+
+`uv run agridrone data list --files` affiche le lien direct de chaque fichier, pour un
+téléchargement à la main dans un navigateur.
+
 ## Socle : device, graines, configs, suivi
 
 - **Device** (`agridrone.core.device`) : `device: auto` choisit CUDA, puis MPS,
@@ -115,7 +165,7 @@ Données, de bout en bout (détails dans [reports/data_pipeline.md](reports/data
 
 ```bash
 uv run agridrone data list                          # registre : sources, statut, licence
-uv run agridrone data download --include-candidates # téléchargement vérifié + extraction
+uv run agridrone data download                      # tout ce qui est téléchargeable
 uv run agridrone data prepare-classification        # data/processed/classification/
 uv run agridrone data prepare-segmentation          # data/processed/segmentation/
 ```
@@ -152,8 +202,13 @@ MLflow.
   trancher avant toute industrialisation.
 - **Albumentations** est figé en version 2.0.8, la dernière publiée sous licence
   MIT. Son successeur `albumentationsx` est sous AGPL-3.0.
-- **Données** : la licence de chaque jeu de données (usage commercial ou non) est
-  vérifiée dans [reports/data_inventory.md](reports/data_inventory.md).
+- **Données** : projet **académique, non commercial** (confirmé le 12 octobre 2026). Les
+  jeux sous licence non commerciale sont donc téléchargés et utilisables comme les
+  autres. Statut, licence, conditions et attribution de chaque jeu :
+  [`LICENCES_DONNEES.txt`](LICENCES_DONNEES.txt) (généré depuis le registre par
+  `uv run agridrone data licences`) ; vérifications détaillées :
+  [reports/data_inventory.md](reports/data_inventory.md). Si le projet devenait
+  commercial, il faudrait réentraîner sans les jeux « non commercial ».
 - **Poids pré-entraînés** (timm : EfficientNet-B0, ConvNeXt-Tiny, ResNet-18) : publiés sous
   Apache-2.0. Ils sont appris sur ImageNet, dont les images ne sont accessibles que pour
   un usage non commercial. Le statut juridique des poids qui en dérivent n'est pas
