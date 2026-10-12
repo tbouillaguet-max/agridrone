@@ -336,7 +336,9 @@ olive_verticillium_uav : Verticilliose de l'olivier détectée par YOLO sur imag
   Lien        : https://zenodo.org/records/8144164
   Taille      : 4,45 Go, 1 fichier(s)
   Remarque    : Images RVB drone de trois oliveraies du nord de la Grèce (automne 2023),
-                arbres atteints de verticilliose. Contenu de l'archive non inspecté.
+                arbres atteints de verticilliose. Selon un agent de recherche, l'archive
+                contient 407 images JPG sans fichier d'annotation : les étiquettes sont à
+                refaire ou à demander aux auteurs.
 
 olive_tree_seg : OliveTreeSeg : segmentation d'oliviers sur images drone (Grèce 2024-2025)
   Statut      : libre

@@ -1,5 +1,7 @@
 # Inventaire et vérification des données (chantier 1)
 
+> Olivier : voir [data_inventory_olivier.md](data_inventory_olivier.md) (12 octobre 2026).
+
 _Version 3, 7 octobre 2026 : version 2 (vérification à la source) + jeux Kaggle (§ 7.4) et
 corrections issues de l'inspection des fichiers téléchargés. Version 2 : statut **en
 attente de validation**. Aucun téléchargement en masse n'a été fait ; seuls des

@@ -1155,7 +1155,7 @@ sources:
     attribution: "Mamalis M., Kalampokis E., Kalfas I., Tarabanis K. (2023). Deep Learning for Detecting Verticillium Fungus in Olive Trees: Using YOLO in UAV Imagery. Algorithms 16(7):343 ; données doi:10.5281/zenodo.8144164"
     provider: zenodo
     homepage: https://zenodo.org/records/8144164
-    notes: "Images RVB drone de trois oliveraies du nord de la Grèce (automne 2023), arbres atteints de verticilliose. Contenu de l'archive non inspecté."
+    notes: "Images RVB drone de trois oliveraies du nord de la Grèce (automne 2023), arbres atteints de verticilliose. Selon un agent de recherche, l'archive contient 407 images JPG sans fichier d'annotation : les étiquettes sont à refaire ou à demander aux auteurs."
     files:
       - name: "Deep Learning for Detecting Verticilium Fungus in Olive Trees Using YOLO in UAV Imagery.zip"
         url: "https://zenodo.org/api/records/8144164/files/Deep%20Learning%20for%20Detecting%20Verticilium%20Fungus%20in%20Olive%20Trees%20Using%20YOLO%20in%20UAV%20Imagery.zip/content"

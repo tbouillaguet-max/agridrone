@@ -84,7 +84,7 @@ commercial) : aucune option n'est nécessaire pour reproduire une expérience. S
 licence et attribution de chaque jeu : [`LICENCES_DONNEES.txt`](LICENCES_DONNEES.txt).
 
 1. **Installer** [Git](https://git-scm.com/downloads), [uv](https://docs.astral.sh/uv/getting-started/installation/)
-   et un outil RAR pour l'archive d'Éthiopie :
+   et un outil RAR (archive d'Éthiopie, quelques jeux olivier) :
    - **Windows** : [7-Zip](https://www.7-zip.org) (trouvé automatiquement dans
      `Program Files`) ; activer les chemins longs si l'extraction échoue
      (« Enable Win32 long paths »), ou cloner dans un dossier court comme `C:\agridrone` ;
@@ -110,10 +110,15 @@ licence et attribution de chaque jeu : [`LICENCES_DONNEES.txt`](LICENCES_DONNEES
    dépôt qui refuse les accès automatisés) sont listés avec leur lien dans
    `LICENCES_DONNEES.txt`.
 
-**Espace disque.** Blé : 36,8 Go d'archives, plus Yellow-Rust-19 dont Kaggle ne donne la
-taille qu'au téléchargement (1,55 Go déclarés). Compter environ deux fois plus avec les
-extractions (environ 80 Go), dont 42 Go pour Agriculture-Vision seul. Pour mettre les
-données sur un autre disque, créer `configs/local.yaml` :
+**Espace disque.** La commande vérifie l'espace libre avant de commencer.
+
+| Projet | Archives | Avec extraction (environ) | Plus gros jeux |
+|---|---|---|---|
+| Blé (`--project wheat`) | 36,8 Go + Yellow-Rust-19 (1,55 Go déclarés) | 80 Go | Agriculture-Vision 21 Go |
+| Olivier (`--project olive`) | 137 Go + quelques jeux Kaggle et git de taille inconnue (au moins 1,3 Go) | 270 Go | images brutes ICAERUS 72 Go, SPADE 15 Go |
+
+`--no-extract` ne garde que les archives. Pour mettre les données sur un autre disque,
+créer `configs/local.yaml` :
 
 ```yaml
 _base_: base.yaml
@@ -160,6 +165,7 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : 
 | 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny), sortie « incertain », tests inter-sources ; modèle binaire sain / malade (§ 1.7) | `agridrone train -c configs/classification/<modèle>.yaml`, `agridrone evaluate --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 1 | fait |
 | 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu), ablation RVB | `agridrone train -c configs/segmentation/unet_5bandes.yaml` ; [reports/baseline_results.md](reports/baseline_results.md) § 2 | fait (aucun jeu public pour le blé : chaîne validée sur WeedsGalore, inventaire § 7.2) |
 | 6 | Rapport des baselines, export ONNX, temps d'inférence | `agridrone export --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 3 et 4 | fait (temps Jetson à mesurer sur la cible) |
+| Olivier | Inventaire des données (maladies, ravageurs, drone multispectral, fruits), registre téléchargeable | `agridrone data download --project olive` ; [reports/data_inventory_olivier.md](reports/data_inventory_olivier.md) | inventaire fait (33 jeux téléchargeables, 7 manuels) ; modèles à faire |
 
 Données, de bout en bout (détails dans [reports/data_pipeline.md](reports/data_pipeline.md)) :
 
