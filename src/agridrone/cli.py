@@ -165,15 +165,32 @@ def _data_context(args: argparse.Namespace):  # type: ignore[no-untyped-def]
 
 def _cmd_data_list(args: argparse.Namespace) -> int:
     registry, lock, raw_dir, _ = _data_context(args)
+    totals: dict[str, float] = {}
+    unknown: set[str] = set()
     for source_id, src in registry.sources.items():
-        size = sum(
-            f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size", 0) for f in src.files
-        )
+        if args.project and src.project != args.project:
+            continue
+        sizes = [f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size") for f in src.files]
+        size = sum(s or 0 for s in sizes)
+        if src.status != "excluded":
+            totals[src.status] = totals.get(src.status, 0.0) + size
+            if None in sizes:
+                unknown.add(src.status)
         present = all((raw_dir / source_id / f.name).exists() for f in src.files) and src.files
-        print(
-            f"{source_id:28s} {src.status:9s} {src.license:22s} {src.task:14s} "
-            f"{size / 1e9:6.2f} Go {'téléchargé' if present else ''}"
+        shown = (
+            "     — Go"
+            if src.status == "excluded"
+            else f"{size / 1e9:6.2f} Go"
+            if None not in sizes
+            else "     ? Go"
         )
+        print(
+            f"{source_id:32s} {src.project:5s} {src.status:9s} {src.license:22s} "
+            f"{src.task:14s} {shown} {'téléchargé' if present else ''}"
+        )
+    for status, total in totals.items():
+        note = " (+ tailles inconnues avant le premier téléchargement)" if status in unknown else ""
+        print(f"Total {status} : {total / 1e9:.2f} Go d'archives{note}")
     return 0
 
 
@@ -183,7 +200,8 @@ def _cmd_data_download(args: argparse.Namespace) -> int:
     registry, lock, raw_dir, interim_dir = _data_context(args)
     lock.prune(registry)
     failures: dict[str, str] = {}
-    for source_id, src in registry.selected(args.ids, args.include_candidates).items():
+    selected = registry.selected(args.ids, args.include_candidates, args.project)
+    for source_id, src in selected.items():
         print(f"[{source_id}] {src.title} ({src.license}, {src.status})", flush=True)
         try:
             results = fetch_source(
@@ -313,6 +331,10 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
         p.add_argument("--registry", default=DEFAULT_REGISTRY, help="registre des sources")
         p.set_defaults(func=func)
+        if name in {"list", "download"}:
+            p.add_argument(
+                "--project", choices=["wheat", "olive"], help="blé ou olivier (défaut : les deux)"
+            )
         if name == "download":
             p.add_argument("ids", nargs="*", help="sources (défaut : toutes les retenues)")
             p.add_argument("--include-candidates", action="store_true")

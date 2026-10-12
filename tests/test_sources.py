@@ -57,6 +57,7 @@ def server(tmp_path: Path) -> Iterator[tuple[str, Path]]:
 def _source(files: list[SourceFile], **extra: object) -> Source:
     base = {
         "title": "test",
+        "project": "wheat",
         "task": "classification",
         "status": "retained",
         "license": "CC-BY-4.0",
@@ -180,6 +181,45 @@ def test_registry_rules() -> None:
     assert list(registry.selected(None, include_candidates=True)) == ["ok", "cand"]
     with pytest.raises(ConfigError, match="exclues"):
         registry.selected(["ko"], include_candidates=False)
+
+
+def test_registry_selects_by_project() -> None:
+    registry = Registry(
+        sources={
+            "ble": _source([SourceFile(name="a", url="http://x")]),
+            "olive": _source([SourceFile(name="b", url="http://x")], project="olive"),
+            "olive_cand": _source(
+                [SourceFile(name="c", url="http://x")], project="olive", status="candidate"
+            ),
+        }
+    )
+    assert list(registry.selected(None, False)) == ["ble", "olive"]
+    assert list(registry.selected(None, False, "olive")) == ["olive"]
+    assert list(registry.selected(None, True, "olive")) == ["olive", "olive_cand"]
+    assert list(registry.selected(None, True, "wheat")) == ["ble"]
+    with pytest.raises(ValueError):
+        _source([SourceFile(name="a", url="http://x")], project="vigne")
+
+
+def test_find_tool_looks_for_7zip_and_tar_on_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from agridrone.data import sources
+
+    exe = tmp_path / "7-Zip" / "7z.exe"
+    exe.parent.mkdir()
+    exe.write_bytes(b"")
+    monkeypatch.setenv("PROGRAMFILES", str(tmp_path))
+    monkeypatch.delenv("PROGRAMFILES(X86)", raising=False)
+    monkeypatch.setattr(
+        sources.shutil,
+        "which",
+        lambda name: "C:/Windows/System32/tar.exe" if name == "tar" else None,
+    )
+    assert sources.find_tool("7z", windows=True) == str(exe)
+    assert sources.find_tool("bsdtar", windows=True) == "C:/Windows/System32/tar.exe"
+    assert sources.find_tool("unar", windows=True) is None
+    assert sources.find_tool("7z", windows=False) is None  # hors Windows : le PATH seulement
 
 
 def test_repository_registry_is_valid(repo_root: Path) -> None:

@@ -75,10 +75,16 @@ class SourceFile(BaseModel):
         return value
 
 
+#: Projet servi par une source : ``wheat`` (blé, y compris les jeux qui valident la chaîne
+#: multispectrale du blé, comme WeedsGalore) ou ``olive`` (olivier).
+Project = Literal["wheat", "olive"]
+
+
 class Source(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str
+    project: Project
     task: Literal["classification", "detection", "segmentation"]
     status: Literal["retained", "candidate", "excluded"]
     license: str
@@ -106,9 +112,12 @@ class Registry(BaseModel):
 
     sources: dict[str, Source]
 
-    def selected(self, ids: list[str] | None, include_candidates: bool) -> dict[str, Source]:
+    def selected(
+        self, ids: list[str] | None, include_candidates: bool, project: Project | None = None
+    ) -> dict[str, Source]:
         """Sources à traiter : ``ids`` explicites, sinon toutes les ``retained``
-        (plus les ``candidate`` si demandé). Une source exclue n'est jamais renvoyée."""
+        (plus les ``candidate`` si demandé), éventuellement limitées à un ``project``.
+        Une source exclue n'est jamais renvoyée."""
         if ids:
             unknown = [i for i in ids if i not in self.sources]
             if unknown:
@@ -119,7 +128,11 @@ class Registry(BaseModel):
                 raise ConfigError(f"Sources exclues, non téléchargeables : {', '.join(excluded)}")
             return chosen
         allowed = {"retained", "candidate"} if include_candidates else {"retained"}
-        return {i: s for i, s in self.sources.items() if s.status in allowed}
+        return {
+            i: s
+            for i, s in self.sources.items()
+            if s.status in allowed and (project is None or s.project == project)
+        }
 
 
 def load_registry(path: str | Path) -> Registry:
@@ -331,31 +344,49 @@ def _extract_zip(archive: Path, dest: Path, include: Sequence[str] | None = None
         zf.extractall(dest, members=members)
 
 
-#: Outils d'extraction RAR, par ordre de préférence. Le décodeur RAR de libarchive
-#: (bsdtar) échoue sur certaines archives (erreurs CRC) : il ne sert qu'en dernier recours.
-_RAR_TOOLS: tuple[tuple[str, Callable[[Path, Path], list[str]]], ...] = (
-    ("unar", lambda a, d: ["unar", "-q", "-D", "-o", str(d), str(a)]),
-    ("unrar", lambda a, d: ["unrar", "x", "-o+", "-idq", str(a), f"{d}/"]),
-    ("7z", lambda a, d: ["7z", "x", "-y", f"-o{d}", str(a)]),
-    ("bsdtar", lambda a, d: ["bsdtar", "-xf", str(a), "-C", str(d)]),
+#: Outils d'extraction RAR, par ordre de préférence (exécutable, archive, destination).
+#: Le décodeur RAR de libarchive (bsdtar) échoue sur certaines archives (erreurs CRC) :
+#: il ne sert qu'en dernier recours.
+_RAR_TOOLS: tuple[tuple[str, Callable[[str, Path, Path], list[str]]], ...] = (
+    ("unar", lambda exe, a, d: [exe, "-q", "-D", "-o", str(d), str(a)]),
+    ("unrar", lambda exe, a, d: [exe, "x", "-o+", "-idq", str(a), f"{d}/"]),
+    ("7z", lambda exe, a, d: [exe, "x", "-y", f"-o{d}", str(a)]),
+    ("bsdtar", lambda exe, a, d: [exe, "-xf", str(a), "-C", str(d)]),
 )
+
+
+def find_tool(name: str, *, windows: bool = os.name == "nt") -> str | None:
+    """Chemin d'un outil d'extraction : le PATH, puis, sous Windows, les emplacements
+    usuels (7-Zip ne s'ajoute pas au PATH ; le ``tar.exe`` de Windows 10+ est un bsdtar)."""
+    found = shutil.which(name)
+    if found or not windows:
+        return found
+    if name == "7z":
+        for base in (os.environ.get("PROGRAMFILES"), os.environ.get("PROGRAMFILES(X86)")):
+            if base and (exe := Path(base) / "7-Zip" / "7z.exe").is_file():
+                return str(exe)
+    if name == "bsdtar":
+        return shutil.which("tar")
+    return None
 
 
 def _extract_rar(archive: Path, dest: Path) -> None:
     for tool, command in _RAR_TOOLS:
-        if shutil.which(tool):
+        exe = find_tool(tool)
+        if exe:
             if tool == "bsdtar":  # seul outil dont on contrôle la liste avant extraction
                 listing = subprocess.run(
-                    ["bsdtar", "-tf", str(archive)], capture_output=True, text=True, check=True
+                    [exe, "-tf", str(archive)], capture_output=True, text=True, check=True
                 ).stdout.splitlines()
                 for name in listing:
                     _check_member(name)
-            subprocess.run(command(archive, dest), check=True)
+            subprocess.run(command(exe, archive, dest), check=True)
             break
     else:
         raise RuntimeError(
-            f"{archive.name} : aucun outil d'extraction RAR trouvé. Installer unar "
-            "(apt install unar, brew install unar), unrar ou 7z."
+            f"{archive.name} : aucun outil d'extraction RAR trouvé. Installer 7-Zip "
+            "(Windows : https://www.7-zip.org), unar (apt install unar, brew install unar) "
+            "ou unrar."
         )
     root = dest.resolve()
     for path in dest.rglob("*"):

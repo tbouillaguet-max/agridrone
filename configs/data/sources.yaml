@@ -1,7 +1,7 @@
 # Registre des sources de données (chantier 2).
 #
-# Chaque source indique sa licence, la preuve de vérification et l'attribution
-# à reproduire. Statuts :
+# Chaque source indique son projet (wheat : blé, olive : olivier), sa licence, la
+# preuve de vérification et l'attribution à reproduire. Statuts :
 #   retained  : licence compatible avec un usage commercial, provenance établie ;
 #   candidate : licence permissive déclarée, provenance à confirmer (téléchargée
 #               seulement avec --include-candidates) ;
@@ -20,6 +20,7 @@ sources:
   # ------------------------------------------------------------------
   jic_wheat_disease_999:
     title: "Wheat disease images (small dataset), John Innes Centre"
+    project: wheat
     task: classification
     status: retained
     license: CC-BY-4.0
@@ -38,6 +39,7 @@ sources:
 
   ethiopia_wheat_leaf:
     title: "Wheat Leaf Dataset (Holeta, Éthiopie)"
+    project: wheat
     task: classification
     status: retained
     license: CC-BY-4.0
@@ -55,6 +57,7 @@ sources:
 
   kaggle_yellowrust_2223:
     title: "YellowRust_22-23 (Kaggle, shantkumar)"
+    project: wheat
     task: classification
     status: candidate
     license: CDLA-Permissive-1.0
@@ -74,6 +77,7 @@ sources:
 
   henan_wheat_disease:
     title: "Wheat Dataset (Henan, Chine) : 7 classes de maladies du blé au champ"
+    project: wheat
     task: classification
     status: retained
     license: CC-BY-4.0
@@ -100,6 +104,7 @@ sources:
 
   tekirdag_powdery_mildew:
     title: "Wheat Powdery Mildew Image Dataset (Tekirdağ, Turquie)"
+    project: wheat
     task: classification
     status: retained
     license: CC-BY-4.0
@@ -124,6 +129,7 @@ sources:
 
   bangladesh_wheat_disease:
     title: "Disease Dataset of Wheat: Original, Augmented, and Balanced (Bangladesh)"
+    project: wheat
     task: classification
     status: retained
     license: CC-BY-4.0
@@ -148,6 +154,7 @@ sources:
 
   kaggle_wheat_leaf_dl:
     title: "Wheat Leaf Disease Dataset for DL Classification (Kaggle, yilikalfikru)"
+    project: wheat
     task: classification
     status: excluded
     license: LicenseRef-compilation-unverified
@@ -167,6 +174,7 @@ sources:
   # ------------------------------------------------------------------
   weedsgalore:
     title: "WeedsGalore, maïs / adventices, DJI P4 Multispectral (GFZ Potsdam)"
+    project: wheat
     task: segmentation
     status: retained
     license: CC-BY-4.0
@@ -184,6 +192,7 @@ sources:
 
   maize_stress_rust_tr:
     title: "UAV multispectral maize, water stress & common rust 2025 (Turquie)"
+    project: wheat
     task: segmentation
     status: retained
     license: CC-BY-4.0
@@ -220,6 +229,7 @@ sources:
   # ------------------------------------------------------------------
   wfd2020:
     title: "Wheat Fungi Diseases (WFD2020)"
+    project: wheat
     task: classification
     status: excluded
     license: LicenseRef-non-commercial
@@ -232,6 +242,7 @@ sources:
 
   kaggle_wheat_plant_diseases:
     title: "Wheat Plant Diseases (Kaggle, kushagra3204) et ses copies"
+    project: wheat
     task: classification
     status: excluded
     license: LicenseRef-provenance-unknown
