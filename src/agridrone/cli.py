@@ -10,8 +10,10 @@ Commandes disponibles (chantier 0) :
 Données (chantier 2) :
 
 * ``data list``     — sources du registre, statut et licence ;
-* ``data download`` — téléchargement idempotent, vérification, extraction ;
+* ``data download`` — téléchargement idempotent de tout ce qui est téléchargeable,
+  vérification, extraction ;
 * ``data verify``   — revérifie les empreintes des fichiers déjà téléchargés ;
+* ``data licences`` — écrit ``LICENCES_DONNEES.txt`` (statut, licence, attribution) ;
 * ``data prepare-classification`` — jeu « dossiers par classe » + manifeste ;
 * ``data prepare-segmentation`` — jeux N bandes (.npy + masques) et tuilage d'orthophotos.
 
@@ -30,8 +32,13 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from agridrone.data.sources import LockFile, Source
 
 DEFAULT_CONFIG = "configs/base.yaml"
 DEFAULT_REGISTRY = "configs/data/sources.yaml"
@@ -190,10 +197,14 @@ def _cmd_data_list(args: argparse.Namespace) -> int:
             f"{src.task:14s} {shown} {'téléchargé' if present else ''}"
         )
         if args.files:
-            for f in src.files:
+            shown_files = src.files if len(src.files) <= 20 else src.files[:3]
+            for f in shown_files:
                 known = f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size")
-                print(f"    {f.name}  ({known / 1e9:.2f} Go)" if known else f"    {f.name}")
+                label = f"{f.name} (git, commit {f.commit[:12]})" if f.commit else f.name
+                print(f"    {label}  ({known / 1e9:.2f} Go)" if known else f"    {label}")
                 print(f"      {f.url}")
+            if len(shown_files) < len(src.files):
+                print(f"    ... {len(src.files)} fichiers, liste complète : {src.files_manifest}")
     for status, total in totals.items():
         note = " (+ tailles inconnues avant le premier téléchargement)" if status in unknown else ""
         print(f"Total {status} : {total / 1e9:.2f} Go d'archives{note}")
@@ -212,13 +223,42 @@ def _cmd_data_licences(args: argparse.Namespace) -> int:
     return 0
 
 
+def _check_disk_space(selected: dict[str, Source], raw_dir: Path, lock: LockFile) -> str | None:
+    """Message d'erreur si les archives restant à télécharger dépassent l'espace libre."""
+    import shutil
+
+    from agridrone.data.sources import pending_bytes
+
+    pending = {sid: pending_bytes(sid, src, raw_dir, lock) for sid, src in selected.items()}
+    needed = sum(v or 0 for v in pending.values())
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    free = shutil.disk_usage(raw_dir).free
+    if needed <= 0.95 * free:
+        return None
+    biggest = sorted(((v or 0, k) for k, v in pending.items()), reverse=True)[:8]
+    lines = [
+        f"Espace disque insuffisant dans {raw_dir} : {needed / 1e9:.1f} Go d'archives à "
+        f"télécharger (sans compter l'extraction), {free / 1e9:.1f} Go libres.",
+        "Plus gros jeux restants :",
+        *(f"  {sid:34s} {size / 1e9:7.1f} Go" for size, sid in biggest if size),
+        "Libérer de la place, changer de disque (paths.raw dans une config locale, voir le "
+        "README), ou télécharger une partie : --project wheat|olive, ou des identifiants.",
+    ]
+    return "\n".join(lines)
+
+
 def _cmd_data_download(args: argparse.Namespace) -> int:
     from agridrone.data.sources import fetch_source
 
     registry, lock, raw_dir, interim_dir = _data_context(args)
     lock.prune(registry)
     failures: dict[str, str] = {}
-    for source_id, src in registry.selected(args.ids, args.project).items():
+    selected = registry.selected(args.ids, args.project)
+    problem = _check_disk_space(selected, raw_dir, lock)
+    if problem:
+        print(problem, file=sys.stderr)
+        return 1
+    for source_id, src in selected.items():
         print(f"[{source_id}] {src.title} ({src.license}, {src.status})", flush=True)
         if src.terms:
             print(f"   conditions d'utilisation : {src.terms}", flush=True)
@@ -236,7 +276,14 @@ def _cmd_data_download(args: argparse.Namespace) -> int:
             failures[source_id] = f"{type(exc).__name__}: {exc}"
             print(f"   ÉCHEC : {failures[source_id]}", file=sys.stderr, flush=True)
             continue
-        for r in results:
+        if len(results) > 20:  # milliers de petits fichiers : un résumé suffit
+            counts = {s: sum(r.status == s for r in results) for s in ("downloaded", "present")}
+            total = sum(r.digests.size for r in results) / 1e9
+            print(
+                f"   {len(results)} fichiers ({counts['downloaded']} téléchargés, "
+                f"{counts['present']} déjà présents), {total:.2f} Go"
+            )
+        for r in results if len(results) <= 20 else []:
             digest, size_mb = r.digests.sha256[:16], r.digests.size / 1e6
             print(f"   {r.status:10s} {r.path.name}  sha256={digest}…  {size_mb:.1f} Mo")
     if failures:
@@ -246,21 +293,33 @@ def _cmd_data_download(args: argparse.Namespace) -> int:
 
 
 def _cmd_data_verify(args: argparse.Namespace) -> int:
-    from agridrone.data.sources import IntegrityError, check_digests, file_digests
+    from agridrone.data.sources import (
+        IntegrityError,
+        check_digests,
+        file_digests,
+        git_checkout_present,
+    )
 
     registry, lock, raw_dir, _ = _data_context(args)
     failures = 0
     for source_id, src in registry.sources.items():
+        ok = 0
         for f in src.files:
             path = raw_dir / source_id / f.name
             if not path.exists():
                 continue
             try:
-                check_digests(file_digests(path), f, lock.get(f"{source_id}/{f.name}"))
-                print(f"OK      {source_id}/{f.name}")
+                if f.commit is not None:
+                    if not git_checkout_present(path, f.commit):
+                        raise IntegrityError(f"{f.name} : commit différent de {f.commit}")
+                else:
+                    check_digests(file_digests(path), f, lock.get(f"{source_id}/{f.name}"))
+                ok += 1
             except IntegrityError as exc:
                 failures += 1
-                print(f"ÉCHEC   {exc}")
+                print(f"ÉCHEC   {source_id} : {exc}")
+        if ok:
+            print(f"OK      {source_id} ({ok} fichier(s))")
     return 1 if failures else 0
 
 

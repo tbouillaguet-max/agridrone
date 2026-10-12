@@ -328,3 +328,123 @@ def test_extract_only_keeps_matching_members(tmp_path: Path) -> None:
     assert files == [".extracted", "Data/Original Dataset/Healthy/a.jpg"]
     with pytest.raises(ValueError, match="aucun membre"):
         extract_archive(archive, tmp_path / "out2", ["*/Nope/*"])
+
+
+def _git(*args: str, cwd: Path) -> str:
+    import subprocess
+
+    return subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def test_git_source_is_pinned_to_a_commit(tmp_path: Path) -> None:
+    import shutil
+
+    if shutil.which("git") is None:
+        pytest.skip("git absent")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git("init", "-q", cwd=repo)
+    _git("config", "uploadpack.allowReachableSHA1InWant", "true", cwd=repo)
+    (repo / "images").mkdir()
+    (repo / "images" / "a.jpg").write_bytes(b"image a")
+    _git("add", ".", cwd=repo)
+    _git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "v1", cwd=repo)
+    first = _git("rev-parse", "HEAD", cwd=repo)
+    (repo / "images" / "b.jpg").write_bytes(b"image b")  # commit suivant : ignoré
+    _git("add", ".", cwd=repo)
+    _git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "v2", cwd=repo)
+
+    spec = SourceFile(name="depot", url=repo.as_uri(), commit=first)
+    source = _source([spec], status="noncommercial", license="LicenseRef-none")
+    lock = LockFile(tmp_path / "lock.yaml")
+    results = fetch_source("gh", source, tmp_path / "raw", tmp_path / "interim", lock)
+    dest = tmp_path / "raw" / "gh" / "depot"
+    assert results[0].status == "downloaded" and results[0].digests.sha256 == f"git:{first}"
+    assert (dest / "images" / "a.jpg").read_bytes() == b"image a"
+    assert not (dest / "images" / "b.jpg").exists() and not (dest / ".git").exists()
+    again = fetch_source("gh", source, tmp_path / "raw", tmp_path / "interim", lock)
+    assert again[0].status == "present"
+    assert lock.entries == {}  # l'empreinte est le commit : rien à enregistrer
+
+    with pytest.raises(ValueError, match="commit git invalide"):
+        SourceFile(name="d", url="https://x", commit="main")
+    with pytest.raises(ValueError, match="ni taille"):
+        SourceFile(name="d", url="https://x", commit=first, size=3)
+
+
+def test_files_manifest_and_pending_bytes(tmp_path: Path) -> None:
+    from agridrone.data.sources import pending_bytes
+
+    (tmp_path / "manifests").mkdir()
+    (tmp_path / "manifests" / "big.csv").write_text(
+        "name,url,size,md5,sha256\n"
+        "a.jpg,https://example.invalid/a,100,,aa\n"
+        "b.jpg,https://example.invalid/b,250,,bb\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sources.yaml").write_text(
+        """
+sources:
+  big:
+    title: t
+    project: olive
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: e
+    attribution: a
+    provider: mendeley
+    homepage: https://example.invalid
+    files_manifest: manifests/big.csv
+""",
+        encoding="utf-8",
+    )
+    registry = load_registry(tmp_path / "sources.yaml")
+    files = registry.sources["big"].files
+    assert [(f.name, f.size, f.sha256) for f in files] == [
+        ("a.jpg", 100, "aa"),
+        ("b.jpg", 250, "bb"),
+    ]
+
+    raw, lock = tmp_path / "raw", LockFile(tmp_path / "lock.yaml")
+    assert pending_bytes("big", registry.sources["big"], raw, lock) == 350
+    (raw / "big").mkdir(parents=True)
+    (raw / "big" / "a.jpg").write_bytes(b"x")
+    assert pending_bytes("big", registry.sources["big"], raw, lock) == 250
+    unknown = _source([SourceFile(name="k.zip", url="https://x")])
+    assert pending_bytes("k", unknown, raw, lock) is None
+
+
+def test_rar_extraction_falls_back_to_next_tool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sys
+
+    from agridrone.data import sources
+
+    partial = (
+        "import sys, pathlib; (pathlib.Path(sys.argv[1]) / 'partiel').write_text('x'); sys.exit(1)"
+    )
+    good = "import sys, pathlib; (pathlib.Path(sys.argv[1]) / 'ok.jpg').write_text('image')"
+    monkeypatch.setattr(
+        sources,
+        "_RAR_TOOLS",
+        (
+            ("casse", lambda exe, a, d: [exe, "-c", partial, str(d)]),
+            ("absent", lambda exe, a, d: [exe, "-c", good, str(d)]),
+            ("bon", lambda exe, a, d: [exe, "-c", good, str(d)]),
+        ),
+    )
+    monkeypatch.setattr(
+        sources, "find_tool", lambda name: None if name == "absent" else sys.executable
+    )
+    archive = tmp_path / "jeu.rar"
+    archive.write_bytes(b"Rar!")
+    dest = extract_archive(archive, tmp_path / "out")
+    assert sorted(p.name for p in dest.iterdir()) == [".extracted", "ok.jpg"]  # rien du 1er essai
+
+    monkeypatch.setattr(sources, "_RAR_TOOLS", sources._RAR_TOOLS[:1])
+    with pytest.raises(RuntimeError, match="casse"):
+        extract_archive(archive, tmp_path / "out2")

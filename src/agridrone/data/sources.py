@@ -14,9 +14,11 @@
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -33,9 +35,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from agridrone.core.config import ConfigError, dump_yaml, load_yaml
 
-#: Licences jugées compatibles avec un usage commercial (identifiants SPDX).
+#: Licences jugées compatibles avec un usage commercial (identifiants SPDX ; GPL-3.0 :
+#: copyleft, réutilisation commerciale possible sous ses conditions).
 COMMERCIAL_LICENSES = frozenset(
-    {"CC-BY-4.0", "CC0-1.0", "CDLA-Permissive-1.0", "MIT", "Apache-2.0"}
+    {"CC-BY-4.0", "CC0-1.0", "CDLA-Permissive-1.0", "MIT", "Apache-2.0", "GPL-3.0"}
 )
 
 _CHUNK = 1 << 20
@@ -67,6 +70,19 @@ class SourceFile(BaseModel):
     #: Sert à ne garder qu'une partie d'une grosse archive (ex. les images originales
     #: sans les images augmentées, qui ne doivent jamais servir de test).
     extract_only: list[str] | None = None
+    #: Dépôt git : ``url`` est celle du dépôt, ``name`` le dossier local, et le contenu
+    #: est figé à ce commit (40 caractères hexadécimaux), dont l'empreinte garantit
+    #: l'intégrité. Pour les dépôts de milliers de fichiers sans somme publiée.
+    commit: str | None = None
+
+    @model_validator(mode="after")
+    def _check_commit(self) -> SourceFile:
+        if self.commit is not None:
+            if not re.fullmatch(r"[0-9a-f]{40}", self.commit):
+                raise ValueError(f"{self.name} : commit git invalide {self.commit!r}")
+            if self.md5 or self.sha256 or self.size is not None or self.extract_only:
+                raise ValueError(f"{self.name} : un dépôt git n'a ni taille, ni empreinte")
+        return self
 
     @field_validator("name")
     @classmethod
@@ -119,12 +135,17 @@ class Source(BaseModel):
     license: str
     license_evidence: str
     attribution: str
-    provider: Literal["zenodo", "mendeley", "kaggle", "gfz", "dataverse", "s3", "url"]
+    provider: Literal[
+        "zenodo", "mendeley", "kaggle", "gfz", "dataverse", "figshare", "s3", "git", "url"
+    ]
     homepage: str
     #: Conditions d'utilisation acceptées en téléchargeant (contrat, et non simple licence).
     terms: str | None = None
     notes: str = ""
     files: list[SourceFile] = Field(default_factory=list)
+    #: Liste des fichiers dans un CSV à part (colonnes name, url, size, md5, sha256),
+    #: relatif au registre : pour les sources de milliers de fichiers.
+    files_manifest: str | None = None
 
     @property
     def downloadable(self) -> bool:
@@ -246,9 +267,33 @@ def licence_report(registry: Registry, lock: LockFile | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def read_manifest_csv(path: Path) -> list[dict[str, Any]]:
+    """Fichiers d'une source listés en CSV (name, url, size, md5, sha256)."""
+    with path.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    return [
+        {
+            "name": row["name"],
+            "url": row["url"],
+            "size": int(row["size"]) if row.get("size") else None,
+            "md5": row.get("md5") or None,
+            "sha256": row.get("sha256") or None,
+        }
+        for row in rows
+    ]
+
+
 def load_registry(path: str | Path) -> Registry:
+    path = Path(path)
+    data = load_yaml(path)
+    for source_id, raw in (data.get("sources") or {}).items():
+        manifest = raw.get("files_manifest") if isinstance(raw, dict) else None
+        if manifest:
+            if raw.get("files"):
+                raise ConfigError(f"{source_id} : `files` et `files_manifest` sont exclusifs")
+            raw["files"] = read_manifest_csv(path.parent / manifest)
     try:
-        return Registry.model_validate(load_yaml(path))
+        return Registry.model_validate(data)
     except ValidationError as exc:
         raise ConfigError(f"{path} : registre de sources invalide\n{exc}") from exc
 
@@ -365,6 +410,8 @@ def download_file(
 ) -> DownloadResult:
     """Télécharge ``file`` dans ``raw_dir/source_id/`` s'il n'y est pas déjà, conforme."""
     dest = raw_dir / source_id / file.name
+    if file.commit is not None:
+        return _git_checkout(file.url, file.commit, dest)
     key = f"{source_id}/{file.name}"
     locked = lock.get(key)
 
@@ -399,6 +446,72 @@ def download_file(
     if file.md5 is None and file.sha256 is None and locked is None:
         lock.record(key, digests.sha256, digests.size)
     return DownloadResult(dest, "downloaded", digests)
+
+
+_GIT_MARKER = ".agridrone-commit"
+
+
+def git_checkout_present(dest: Path, commit: str) -> bool:
+    marker = dest / _GIT_MARKER
+    return marker.is_file() and marker.read_text(encoding="utf-8").strip() == commit
+
+
+def _git_checkout(url: str, commit: str, dest: Path) -> DownloadResult:
+    """Récupère le dépôt ``url`` figé au commit ``commit`` dans ``dest`` (sans historique),
+    vérifie le commit obtenu, puis renomme de façon atomique. Idempotent (marqueur)."""
+
+    def size_of(root: Path) -> int:
+        return sum(p.stat().st_size for p in root.rglob("*") if p.is_file())
+
+    if git_checkout_present(dest, commit):
+        return DownloadResult(dest, "present", Digests("", f"git:{commit}", size_of(dest)))
+    git = shutil.which("git")
+    if git is None:
+        raise RuntimeError(f"{url} : git introuvable (https://git-scm.com/downloads)")
+    tmp = dest.with_name(dest.name + ".part")
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    try:
+
+        def run(*args: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                [git, "-C", str(tmp), *args], check=True, capture_output=True, text=True
+            )
+
+        run("init", "-q")
+        run("fetch", "-q", "--depth", "1", url, commit)
+        run("-c", "advice.detachedHead=false", "checkout", "-q", "FETCH_HEAD")
+        head = run("rev-parse", "HEAD").stdout.strip()
+        if head != commit:
+            raise IntegrityError(f"{url} : commit attendu {commit}, obtenu {head}")
+        shutil.rmtree(tmp / ".git")
+        (tmp / _GIT_MARKER).write_text(commit, encoding="utf-8")
+        shutil.rmtree(dest, ignore_errors=True)
+        tmp.rename(dest)
+    except BaseException:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    return DownloadResult(dest, "downloaded", Digests("", f"git:{commit}", size_of(dest)))
+
+
+def pending_bytes(source_id: str, source: Source, raw_dir: Path, lock: LockFile) -> int | None:
+    """Octets restant à télécharger pour ``source`` (None si une taille est inconnue)."""
+    total = 0
+    for f in source.files:
+        dest = raw_dir / source_id / f.name
+        if f.commit is not None:
+            if not git_checkout_present(dest, f.commit):
+                return None
+            continue
+        if dest.exists():
+            continue
+        size = (
+            f.size if f.size is not None else (lock.get(f"{source_id}/{f.name}") or {}).get("size")
+        )
+        if size is None:
+            return None
+        total += size
+    return total
 
 
 def write_manifest(
@@ -482,18 +595,32 @@ def find_tool(name: str, *, windows: bool = os.name == "nt") -> str | None:
 
 
 def _extract_rar(archive: Path, dest: Path) -> None:
+    # Aucun décodeur RAR ne lit toutes les archives : unar échoue sur certaines RAR 5
+    # (jeu d'Uğuz et Uysal), bsdtar sur d'autres (erreurs CRC sur l'archive d'Éthiopie).
+    # On essaie donc chaque outil disponible, en repartant d'un dossier vide.
+    errors: list[str] = []
     for tool, command in _RAR_TOOLS:
         exe = find_tool(tool)
-        if exe:
+        if not exe:
+            continue
+        try:
             if tool == "bsdtar":  # seul outil dont on contrôle la liste avant extraction
                 listing = subprocess.run(
                     [exe, "-tf", str(archive)], capture_output=True, text=True, check=True
                 ).stdout.splitlines()
                 for name in listing:
                     _check_member(name)
-            subprocess.run(command(exe, archive, dest), check=True)
+            subprocess.run(command(exe, archive, dest), check=True, capture_output=True)
             break
+        except subprocess.CalledProcessError as exc:
+            errors.append(f"{tool} (code {exc.returncode})")
+            shutil.rmtree(dest, ignore_errors=True)
+            dest.mkdir(parents=True)
     else:
+        if errors:
+            raise RuntimeError(
+                f"{archive.name} : extraction RAR en échec avec " + ", ".join(errors)
+            )
         raise RuntimeError(
             f"{archive.name} : aucun outil d'extraction RAR trouvé. Installer 7-Zip "
             "(Windows : https://www.7-zip.org), unar (apt install unar, brew install unar) "
