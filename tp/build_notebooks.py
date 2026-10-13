@@ -262,76 +262,108 @@ print(f"photos rangées dans deux classes : {len(conflits)}")
     md("""
     ### Exercice 1.4 : les quasi-doublons
 
-    Une photo recadrée, recompressée ou reprise une seconde plus tard n'a pas la même
-    empreinte MD5, mais c'est presque la même image. On les repère avec une **empreinte
-    perceptuelle** (*dHash*) :
+    Une photo recadrée, réduite ou réenregistrée n'a plus la même empreinte MD5, mais
+    c'est la même image. On la repère avec une **empreinte perceptuelle** (*dHash*) :
 
-    1. passer l'image en niveaux de gris, réduite à 9 × 8 pixels ;
-    2. comparer chaque pixel à son voisin de droite, ce qui donne 64 bits ;
-    3. deux images sont quasi identiques si moins de quelques bits diffèrent (distance de
-       Hamming).
+    1. passer l'image en niveaux de gris, réduite à 17 × 16 pixels ;
+    2. comparer chaque pixel à son voisin de droite, ce qui donne 16 × 16 = 256 bits ;
+    3. deux images sont quasi identiques si très peu de bits diffèrent (**distance de
+       Hamming**).
 
-    Complétez `dhash`, calculez la matrice des distances (fournie), puis regroupez les
-    images proches : deux images à distance ≤ `SEUIL` sont dans le même **groupe**. Ces
-    groupes serviront au découpage : un groupe entier va soit en entraînement, soit en
+    Complétez `dhash`. Le reste est fourni :
+    - la matrice des distances, calculée par blocs pour ménager la mémoire ;
+    - le regroupement : deux images à distance ≤ `SEUIL` vont dans le même **groupe** ;
+    - une planche de paires d'images par tranche de distance.
+
+    Ces groupes serviront au découpage : un groupe entier va soit en entraînement, soit en
     validation.
     """),
     exo('''
-def dhash(chemin, taille=8):
-    """Empreinte perceptuelle sur 64 bits (entier Python)."""
+def dhash(chemin, taille=16):
+    """Empreinte perceptuelle : tableau numpy de taille*taille booléens."""
     ...
-
-df["dhash"] = [dhash(p) for p in df["chemin"]]
-
-# Fourni : distances de Hamming entre toutes les paires (numpy >= 2.0).
-h = np.array(df["dhash"].tolist(), dtype=np.uint64)
-distances = np.bitwise_count(h[:, None] ^ h[None, :])
-SEUIL = 4
-
-# Regroupement (union-find) : fourni.
-parent = list(range(len(df)))
-def racine(i):
-    while parent[i] != i:
-        parent[i] = parent[parent[i]]
-        i = parent[i]
-    return i
-for i, j in zip(*np.nonzero(np.triu(distances <= SEUIL, k=1))):
-    parent[racine(i)] = racine(j)
-df["groupe"] = [racine(i) for i in range(len(df))]
 ''', '''
-def dhash(chemin, taille=8):
-    """Empreinte perceptuelle sur 64 bits (entier Python)."""
-    im = Image.open(chemin).convert("L").resize((taille + 1, taille), Image.BILINEAR)
-    a = np.asarray(im, dtype=np.int16)
-    bits = (a[:, 1:] > a[:, :-1]).flatten()
-    return int("".join("1" if b else "0" for b in bits), 2)
+def dhash(chemin, taille=16):
+    """Empreinte perceptuelle : tableau numpy de taille*taille booléens."""
+    im = Image.open(chemin)
+    im.draft("L", (4 * taille, 4 * taille))  # JPEG : décodage réduit, plus rapide
+    a = np.asarray(im.convert("L").resize((taille + 1, taille), Image.BILINEAR), dtype=np.int16)
+    return (a[:, 1:] > a[:, :-1]).flatten()
+'''),
+    code('''
+# Fourni : distances de Hamming entre toutes les paires, par blocs de 256 images.
+empreintes = np.packbits(np.stack([dhash(p) for p in df["chemin"]]), axis=1)   # (n, 32) octets
+n = len(empreintes)
+distances = np.zeros((n, n), dtype=np.uint16)
+for debut in range(0, n, 256):
+    bloc = empreintes[debut:debut + 256, None, :] ^ empreintes[None, :, :]
+    distances[debut:debut + 256] = np.bitwise_count(bloc).sum(axis=-1)
 
-df["dhash"] = [dhash(p) for p in df["chemin"]]
+def grouper(seuil):
+    """Union-find : relie les images à distance <= seuil. Renvoie un numéro de groupe par image."""
+    parent = list(range(n))
+    def racine(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for i, j in zip(*np.nonzero(np.triu(distances <= seuil, k=1))):
+        parent[racine(i)] = racine(j)
+    return np.array([racine(i) for i in range(n)])
 
-# Fourni : distances de Hamming entre toutes les paires (numpy >= 2.0).
-h = np.array(df["dhash"].tolist(), dtype=np.uint64)
-distances = np.bitwise_count(h[:, None] ^ h[None, :])
-SEUIL = 4
+def voir_paires(d_min, d_max, k=4, graine=0):
+    """Affiche k paires d'images (MD5 différents) dont la distance est entre d_min et d_max."""
+    i, j = np.nonzero(np.triu((distances >= d_min) & (distances <= d_max), k=1))
+    garde = df["md5"].values[i] != df["md5"].values[j]
+    i, j = i[garde], j[garde]
+    print(f"{len(i)} paires à distance {d_min}-{d_max}")
+    if len(i) == 0:
+        return
+    tirage = np.random.default_rng(graine).choice(len(i), size=min(k, len(i)), replace=False)
+    fig, axes = plt.subplots(1, 2 * len(tirage), figsize=(2.4 * 2 * len(tirage), 2))
+    for m, t in enumerate(tirage):
+        for c, idx in enumerate((i[t], j[t])):
+            axes[2 * m + c].imshow(Image.open(df["chemin"].iloc[idx]))
+            axes[2 * m + c].set_title(f"{df['officiel'].iloc[idx]} / {df['classe'].iloc[idx]}", fontsize=7)
+            axes[2 * m + c].axis("off")
+    plt.show()
 
-# Regroupement (union-find) : fourni.
-parent = list(range(len(df)))
-def racine(i):
-    while parent[i] != i:
-        parent[i] = parent[parent[i]]
-        i = parent[i]
-    return i
-for i, j in zip(*np.nonzero(np.triu(distances <= SEUIL, k=1))):
-    parent[racine(i)] = racine(j)
-df["groupe"] = [racine(i) for i in range(len(df))]
-
-taille_groupes = df.groupby("groupe").size()
-print(f"{len(taille_groupes)} groupes ; {(taille_groupes > 1).sum()} contiennent plusieurs images")
-melanges = df.groupby("groupe")["officiel"].nunique()
-print(f"groupes à cheval sur train et test officiels : {(melanges > 1).sum()}")
+for seuil in (0, 3, 10, 20, 30):
+    g = grouper(seuil)
+    tailles = pd.Series(g).value_counts()
+    a_cheval = pd.DataFrame({"g": g, "o": df["officiel"]}).groupby("g")["o"].nunique().gt(1).sum()
+    print(f"seuil {seuil:2d} : plus grand groupe {tailles.max():5d} images, "
+          f"{a_cheval} groupes à cheval sur train et test")
 '''),
     md("""
-    ❓ Combien de groupes sont à cheval sur le train et le test officiels ? Que
-    faudrait-il faire si l'on voulait un test parfaitement propre ?
+    ### Exercice 1.5 : choisir le seuil en regardant
+
+    Affichez des paires à distance 0, 1-4, 5-9 et 10-20 avec `voir_paires`. À partir de
+    quelle distance ne s'agit-il plus de la même photo ?
+
+    ❓ Que se passe-t-il avec un seuil trop large (20, 30) ? Pourquoi les photos de ce jeu,
+    toutes prises sur fond uni, piègent-elles une empreinte aussi simple ? Proposez une
+    méthode plus robuste, par exemple comparer les sorties d'un réseau pré-entraîné.
+    """),
+    exo('''
+# voir_paires(0, 0) ; voir_paires(1, 4) ; ...
+SEUIL = ...   # votre choix
+df["groupe"] = grouper(SEUIL)
+''', '''
+for d_min, d_max in [(0, 0), (1, 4), (5, 9), (10, 20)]:
+    voir_paires(d_min, d_max)
+# Distance 0 : la même photo réenregistrée. Dès 1 à 4 : des feuilles différentes, posées
+# sur le même fond. Un seuil bas suffit : au-delà, les groupes s'enchaînent (« A ressemble
+# à B, qui ressemble à C ») et des centaines de feuilles différentes se retrouvent liées.
+SEUIL = 3
+df["groupe"] = grouper(SEUIL)
+melanges = df.groupby("groupe")["officiel"].nunique()
+print(f"seuil {SEUIL} : {df['groupe'].nunique()} groupes ; "
+      f"{(melanges > 1).sum()} groupes à cheval sur le train et le test officiels")
+'''),
+    md("""
+    ❓ Le MD5 trouvait 24 photos communes au train et au test. Combien en trouvez-vous
+    maintenant ? Qu'en concluez-vous sur les scores publiés avec ce découpage officiel ?
 
     ## 2. Découper sans fuite
 
@@ -603,8 +635,8 @@ plt.title("Test (sans quasi-doublon du train)"); plt.show()
 
     1. Sur la **validation**, tracez l'exactitude en fonction de la part d'images gardées
        (on garde les plus sûres d'abord).
-    2. Choisissez le seuil de confiance le plus bas qui garde 99 % d'exactitude sur la
-       validation.
+    2. Choisissez le seuil de confiance le plus bas qui garde `CIBLE` = 95 % d'exactitude
+       sur la validation.
     3. Appliquez ce seuil au **test** : quelle part d'images est décidée, avec quelle
        exactitude ?
     """),
@@ -613,6 +645,7 @@ def courbe_risque_couverture(probas, y):
     """Renvoie (couverture, exactitude, seuil), triés par confiance décroissante."""
     ...
 
+CIBLE = 0.95
 # couverture, exactitude, seuils = courbe_risque_couverture(p_val, y_val)
 # SEUIL_INCERTAIN = ...
 ''', '''
@@ -624,8 +657,9 @@ def courbe_risque_couverture(probas, y):
     n = np.arange(1, len(y) + 1)
     return n / len(y), np.cumsum(juste) / n, confiance[ordre]
 
+CIBLE = 0.95
 couverture, exactitude, seuils = courbe_risque_couverture(p_val, y_val)
-ok = np.nonzero(exactitude >= 0.99)[0]
+ok = np.nonzero(exactitude >= CIBLE)[0]
 SEUIL_INCERTAIN = float(seuils[ok.max()]) if len(ok) else 1.0
 plt.plot(couverture, exactitude)
 plt.xlabel("part des images décidées"); plt.ylabel("exactitude sur ces images")
