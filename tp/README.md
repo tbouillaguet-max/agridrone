@@ -54,7 +54,7 @@ YOLO11n) se téléchargent automatiquement à la première exécution.
 **Matériel.** Un GPU NVIDIA rend le travail confortable, mais tout fonctionne sans :
 les notebooks détectent le matériel et passent en **mode rapide** (moins d'époques,
 images plus petites). Les résultats sont alors un peu moins bons, mais toutes les étapes
-sont faisables. Durées mesurées sur un CPU 4 cœurs : environ 25 minutes d'entraînement
+sont faisables. Durées mesurées sur un CPU 4 cœurs : environ 15 minutes d'entraînement
 pour le TP 1, 30 minutes pour le TP 2.
 
 - **Windows + carte NVIDIA** : `uv sync` installe un PyTorch sans CUDA, et les
@@ -76,7 +76,36 @@ pour le TP 1, 30 minutes pour le TP 2.
 
 ## Résultats de référence
 
-<!-- RESULTATS -->
+Mesurés le 13 octobre 2026 en exécutant les corrigés sur un CPU 4 cœurs (Xeon, sans
+GPU), donc en **mode rapide**. Le mode complet sur GPU n'a pas été mesuré ici.
+
+**TP 1** (192 px, 8 époques d'environ 105 s ; 16 minutes pour tout le notebook)
+
+| Étape | Résultat |
+|---|---|
+| Doublons | 94 copies en trop ; 24 photos (MD5) communes au train et au test officiels |
+| Quasi-doublons (dHash 256 bits, seuil 3) | 106 groupes à cheval sur train et test ; le test passe de 680 à 574 images |
+| Référence (histogrammes + régression logistique) | exactitude de validation 0,71 |
+| EfficientNet-B0 | validation 0,94 ; test 0,92 (rappel : sain 0,87, œil de paon 0,92, acariose 0,94) |
+| Seuil « incertain » (98 % visé sur la validation) | seuil 0,78 : 70 % du test décidé, à 98,5 % d'exactitude |
+| Pérou (hors source) | sain / malade 0,98 ; rappel des malades 0,97 ; fausses alertes 1,3 % ; 83 % décidé |
+| Turquie, Diker (hors source) | sain / malade 0,91 ; rappel des malades 0,95 ; fausses alertes 12 % ; 41 % décidé |
+
+**TP 2** (640 px, 60 époques d'environ 28 s ; 29 minutes pour tout le notebook)
+
+| Étape | Résultat |
+|---|---|
+| Taille des insectes | largeur médiane 13 px à 640 px (10e centile 7 px), 20 px à 1024 px |
+| Test, 3 classes | mAP50 0,51 ; mAP50-95 0,33 (femelle 0,43, mâle 0,47, pyrale 0,64 sur 7 objets) |
+| Test, une seule classe « insecte » | mAP50 0,80 (précision 0,78, rappel 0,77) |
+| Comptage | `CONF` = 0,25 choisi sur la validation ; test : 2,3 mouches d'erreur par image, 255 prédites pour 261 |
+| DIRT (hors source, une classe) | mAP50 0,09 (précision 0,14, rappel 0,16) |
+| Leucade (hors source, comptage expert) | erreur de 36 mouches par image ; 937 comptées pour 5 390, l'écart croissant avec le remplissage du piège |
+
+Ces chiffres servent de repère, pas de cible à atteindre au point près. Un écart de
+quelques points vient de la graine, du matériel ou du mode. La leçon principale est
+dans les deux dernières lignes de chaque tableau : un modèle bon sur sa source peut
+s'effondrer ailleurs.
 
 ## Grille d'auto-évaluation
 
