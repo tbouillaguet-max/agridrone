@@ -5,7 +5,7 @@ du drone, sur des données publiques réelles :
 
 | TP | Question | Type de modèle | Données | Durée indicative |
 |---|---|---|---|---|
-| [TP 1](tp1_maladies_feuilles.ipynb) | Cette feuille est-elle saine, atteinte d'œil de paon ou d'acariose (acarien *Aculus olearius*) ? | classification d'images (EfficientNet-B0, PyTorch + timm) | Uğuz et Uysal (Turquie) ; tests : Diker (Turquie), Pérou | 3 à 4 h |
+| [TP 1](tp1_maladies_feuilles.ipynb) | Cette feuille est-elle saine, atteinte d'œil de paon ou d'acariose (acarien *Aculus olearius*) ? | classification d'images (EfficientNet-B0, PyTorch + timm) | Uğuz et Uysal (Turquie) ; tests : Diker (Turquie, autre équipe), Pérou | 3 à 4 h |
 | [TP 2](tp2_parasites_pieges.ipynb) | Combien de mouches de l'olive (femelles, mâles) dans ce piège ? | détection d'objets (YOLO11n, Ultralytics) | SmartMcPhail ; tests : DIRT (Grèce), piège numérique de Leucade | 3 à 4 h |
 
 Chaque notebook contient des explications, des cellules **À FAIRE** à compléter et des
@@ -21,7 +21,7 @@ questions ❓ pour le compte rendu. Les corrigés complets sont dans
 - entraîner un réseau pré-entraîné (classification) et un détecteur (YOLO) ;
 - évaluer comme il faut :
   - rappel par classe et matrice de confusion ;
-  - seuil « incertain » ;
+  - seuil « incertain » réglé sur la validation ;
   - mAP de détection ;
   - erreur de comptage ;
   - et surtout **test sur des images d'une autre source** ;
@@ -30,26 +30,40 @@ questions ❓ pour le compte rendu. Les corrigés complets sont dans
 
 ## Installation (une fois)
 
-Suivez d'abord la section « Télécharger toutes les données sur votre PC » du
-[README du projet](../README.md) (Git, uv, outil RAR). Puis, depuis la racine du projet :
+1. Suivez les **étapes 1 et 2** de la section « Télécharger toutes les données sur votre
+   PC » du [README du projet](../README.md) : installer Git, uv et un outil RAR, puis
+   récupérer le projet. **Ne lancez pas l'étape 3** : sans argument, `data download`
+   télécharge tous les jeux du projet (plus de 170 Go). Pour les TP, six jeux suffisent.
+2. Depuis la racine du projet :
 
-```bash
-uv sync --group notebooks          # dépendances + JupyterLab
-uv run agridrone data download olive_leaf_uguz_uysal olive_leaf_peacock_diker olive_leaf_peacock_peru
-uv run agridrone data download olive_fly_smartmcphail olive_fly_dirt_coco olive_fly_digital_mcphail
-uv run jupyter lab tp/
-```
+   ```bash
+   uv sync --group notebooks          # dépendances + JupyterLab
+   uv run agridrone data download olive_leaf_uguz_uysal olive_leaf_peacock_diker olive_leaf_peacock_peru
+   uv run agridrone data download olive_fly_smartmcphail olive_fly_dirt_coco olive_fly_digital_mcphail
+   uv run jupyter lab tp/
+   ```
 
-Il faut environ 2 Go de téléchargement et 4 Go de disque avec les extractions. Les poids
-pré-entraînés (EfficientNet-B0, YOLO11n) se téléchargent automatiquement à la première
-exécution.
+3. **Avant de commencer**, enregistrez chaque notebook sous un autre nom (Fichier >
+   Enregistrer sous…, par exemple `tp1_maladies_feuilles_NOM.ipynb`) : un `git pull` ou
+   une régénération des notebooks écraserait les fichiers d'origine.
 
-**Matériel.** Un GPU NVIDIA rend le travail confortable, mais tout fonctionne sur CPU :
+Prévoyez environ 10 Go de disque : 3,5 Go de données (archives et extractions) et 2 à
+7 Go pour l'environnement Python (PyTorch). Les poids pré-entraînés (EfficientNet-B0,
+YOLO11n) se téléchargent automatiquement à la première exécution.
+
+**Matériel.** Un GPU NVIDIA rend le travail confortable, mais tout fonctionne sans :
 les notebooks détectent le matériel et passent en **mode rapide** (moins d'époques,
 images plus petites). Les résultats sont alors un peu moins bons, mais toutes les étapes
-sont faisables. Sur Windows et macOS, les images sont chargées dans le processus
-principal (`NUM_WORKERS = 0`), ce qui est plus lent mais évite une erreur de
-multiprocessing dans les notebooks.
+sont faisables. Durées mesurées sur un CPU 4 cœurs : environ 25 minutes d'entraînement
+pour le TP 1, 30 minutes pour le TP 2.
+
+- **Windows + carte NVIDIA** : `uv sync` installe un PyTorch sans CUDA, et les
+  notebooks afficheront « Matériel : cpu ». Pour utiliser la carte, suivez « PyTorch et
+  GPU » dans le README du projet, puis vérifiez avec `uv run agridrone info`.
+- **Mac Apple Silicon** : les notebooks utilisent le GPU du Mac (`mps`), en mode rapide.
+- **Windows et macOS** : les images sont chargées dans le processus principal
+  (`NUM_WORKERS = 0`). C'est plus lent, mais cela évite une erreur de multiprocessing
+  dans les notebooks.
 
 ## Déroulé conseillé
 
@@ -62,13 +76,7 @@ multiprocessing dans les notebooks.
 
 ## Résultats de référence
 
-Obtenus en exécutant les corrigés sur le CPU de développement (4 cœurs, sans GPU), donc
-en **mode rapide**. Sur GPU (mode complet), attendez-vous à mieux.
-
 <!-- RESULTATS -->
-
-Ces chiffres servent à vous situer, pas de cible à atteindre au point près. Un écart de
-quelques points vient de la graine, du matériel ou du mode.
 
 ## Grille d'auto-évaluation
 
@@ -78,27 +86,39 @@ quelques points vient de la graine, du matériel ou du mode.
 | Découpage | expliquer et éviter une fuite train → test |
 | Référence | justifier l'intérêt d'un modèle simple avant le deep learning |
 | Entraînement | écrire une boucle PyTorch (passe avant, perte, rétropropagation, pas d'optimisation) |
-| Évaluation | lire une matrice de confusion, choisir un seuil « incertain » sur la validation |
+| Évaluation | lire une matrice de confusion, choisir un seuil sur la validation (jamais sur le test) |
 | Généralisation | mesurer et expliquer la chute sur une autre source |
-| Détection | convertir COCO vers YOLO, lire précision, rappel et mAP |
+| Interprétation | produire et commenter une carte Grad-CAM, repérer un raccourci (fond, bords) |
+| Réutilisation | sauvegarder un modèle avec ses réglages (classes, taille, seuil) et diagnostiquer une nouvelle image |
+| Détection | convertir COCO vers YOLO, lire IoU, précision, rappel et mAP |
 | Comptage | passer des boîtes à la mesure utile (mouches par piège) et en mesurer l'erreur |
 
 ## Questions fréquentes
 
 - **`FileNotFoundError` sur `data/interim/...`** : le jeu n'est pas téléchargé, ou
-  l'extraction RAR a échoué (installer 7-Zip, unar ou unrar, puis relancer la commande
-  `data download`).
-- **`CUDA out of memory`** : baisser `BATCH` (TP 1) ou `BATCH`, puis `IMGSZ` (TP 2).
-- **Le kernel redémarre (mémoire)** : fermer les autres notebooks ; en TP 1, la
-  matrice des distances de 3 400 × 3 400 empreintes demande environ 100 Mo.
+  l'extraction RAR a échoué (installez 7-Zip, unar ou unrar, puis relancez la commande
+  `data download`). Autre cause : les données sont ailleurs. Si vous avez utilisé
+  `configs/local.yaml`, remplacez dans la cellule 0 `DATA = ROOT / "data" / "interim"`
+  par votre chemin, par exemple `DATA = Path("D:/agridrone/interim")`.
+- **`ModuleNotFoundError: No module named 'timm'` (ou `ultralytics`)** : Jupyter
+  n'utilise pas l'environnement du projet. Lancez-le avec `uv run jupyter lab tp/`
+  depuis la racine du projet (pas depuis Anaconda). Sous VS Code, choisissez
+  l'interpréteur `.venv`.
+- **`jupyter` introuvable après un `uv sync`** : relancez `uv sync --group notebooks`.
+- **Windows : `OSError: [WinError 126]` à l'import de torch** : installez le
+  « Microsoft Visual C++ Redistributable » (x64), puis redémarrez.
+- **`CUDA out of memory`** : baissez `BATCH` (TP 1), ou `BATCH` puis `IMGSZ` (TP 2).
+- **Le noyau redémarre (mémoire)** : fermez les autres notebooks et applications, puis
+  baissez `BATCH` (16, puis 8). Ce sont les entraînements (TP 1, partie 4 ; TP 2,
+  partie 3) qui demandent le plus de mémoire vive.
 - **Résultats différents à chaque exécution** : le GPU n'est pas déterministe. Les
   écarts doivent rester faibles.
-- **Modifier les notebooks** : ils sont générés par `build_notebooks.py`, à éditer puis
-  relancer (`uv run python tp/build_notebooks.py`). Vos copies de travail peuvent être
-  modifiées librement : enregistrez-les sous un autre nom.
+- **(Enseignants) Modifier les énoncés** : éditez `build_notebooks.py`, puis lancez
+  `uv run python tp/build_notebooks.py`, qui réécrit `tp/*.ipynb` et
+  `tp/corriges/*.ipynb`.
 
 ## Licences des données
 
-Usage académique, non commercial. Le jeu d'Uğuz et Uysal n'a pas de licence publiée, et
-celui du Pérou est sous CC BY-NC-SA 4.0. Citez les auteurs (références dans
-[`LICENCES_DONNEES.txt`](../LICENCES_DONNEES.txt)).
+Usage académique, non commercial. Les jeux d'Uğuz et Uysal et de Diker n'ont pas de
+licence publiée, et celui du Pérou est sous CC BY-NC-SA 4.0. Citez les auteurs
+(références dans [`LICENCES_DONNEES.txt`](../LICENCES_DONNEES.txt)).

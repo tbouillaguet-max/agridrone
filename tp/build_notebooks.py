@@ -70,6 +70,8 @@ import torch
 ROOT = Path.cwd().resolve()
 while not (ROOT / "pyproject.toml").exists() and ROOT != ROOT.parent:
     ROOT = ROOT.parent
+# Données extraites par `agridrone data download`. Si vous les avez mises sur un autre
+# disque (configs/local.yaml), remplacez par votre chemin, ex. Path("D:/agridrone/interim").
 DATA = ROOT / "data" / "interim"
 
 SEED = 42
@@ -86,7 +88,9 @@ else:
 # Sous Windows et macOS, les DataLoader à plusieurs processus ne fonctionnent pas avec des
 # classes définies dans un notebook : on charge les images dans le processus principal.
 NUM_WORKERS = 2 if sys.platform.startswith("linux") else 0
-print(f"Projet : {ROOT}\\nMatériel : {DEVICE}")
+# Sans GPU NVIDIA (CPU, ou GPU de Mac), entraînement raccourci.
+MODE_RAPIDE = DEVICE != "cuda"
+print(f"Projet : {ROOT}\\nMatériel : {DEVICE} ; MODE_RAPIDE = {MODE_RAPIDE}")
 '''
 
 # ======================================================================
@@ -116,10 +120,12 @@ TP1: list[Cell] = [
     3. Poser une référence simple (histogrammes de couleur + régression logistique).
     4. Entraîner un réseau pré-entraîné (*transfer learning*) avec PyTorch et timm.
     5. Évaluer : matrice de confusion, rappel par classe, seuil « incertain ».
-    6. Tester sur deux jeux d'autres pays (Turquie, Pérou) : le vrai test.
+    6. Tester sur des feuilles d'autres sources (autres photographes en Turquie, Pérou) :
+       le vrai test.
     7. Voir où regarde le réseau (Grad-CAM), sauvegarder et réutiliser le modèle.
 
-    **Comment travailler.** Les cellules marquées « À FAIRE » sont à compléter. Les
+    **Comment travailler.** Commencez par enregistrer ce notebook sous un autre nom
+    (Fichier > Enregistrer sous…). Les cellules marquées « À FAIRE » sont à compléter. Les
     questions ❓ sont à traiter dans votre compte rendu. Le corrigé est dans
     `tp/corriges/`. Ne l'ouvrez qu'après avoir essayé.
 
@@ -136,19 +142,18 @@ import time
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from PIL import Image
+from PIL import Image, ImageOps
 
 OUT = ROOT / "runs" / "tp1"
 OUT.mkdir(parents=True, exist_ok=True)
 
-# Réglages : sur CPU, un entraînement court (quelques minutes par époque) ; sur GPU, complet.
-MODE_RAPIDE = DEVICE == "cpu"
+# Réglages : sur CPU, environ 2 minutes par époque (CPU 4 cœurs) ; sur GPU, moins d'une minute.
 IMG_SIZE = 192 if MODE_RAPIDE else 224
-EPOCHS = 4 if MODE_RAPIDE else 15
+EPOCHS = 8 if MODE_RAPIDE else 15
 BATCH = 32
 ARCH = "efficientnet_b0.ra_in1k"   # 5,3 M de paramètres, poids ImageNet
 CLASSES = ["sain", "oeil_de_paon", "acariose"]
-print(f"MODE_RAPIDE={MODE_RAPIDE}, IMG_SIZE={IMG_SIZE}, EPOCHS={EPOCHS}")
+print(f"IMG_SIZE={IMG_SIZE}, EPOCHS={EPOCHS}")
 '''),
     md("""
     ## 1. Les données
@@ -214,7 +219,7 @@ montrer(df)
 ''', '''
 def montrer(df, n=5, graine=0):
     classes = sorted(df["classe"].unique())
-    fig, axes = plt.subplots(len(classes), n, figsize=(2.6 * n, 2.2 * len(classes)))
+    fig, axes = plt.subplots(len(classes), n, figsize=(2.6 * n, 2.2 * len(classes)), squeeze=False)
     for i, classe in enumerate(classes):
         tirage = df[df["classe"] == classe].sample(n, random_state=graine)
         for j, chemin in enumerate(tirage["chemin"]):
@@ -238,9 +243,10 @@ montrer(df)
     Calculez l'empreinte MD5 de chaque fichier (`hashlib.md5(chemin.read_bytes())`),
     puis comptez :
 
-    - les fichiers en double ;
-    - les photos présentes **à la fois** dans le train et le test officiels ;
-    - les photos rangées dans deux classes différentes.
+    - le nombre de copies en trop (fichiers − empreintes distinctes) ;
+    - le nombre de photos (empreintes) présentes **à la fois** dans le train et le test
+      officiels ;
+    - le nombre de photos rangées dans deux classes différentes.
     """),
     exo('''
 # df["md5"] = ...
@@ -255,7 +261,7 @@ fuites = par_empreinte["officiel"].nunique()
 fuites = fuites[fuites > 1].index
 conflits = par_empreinte["classe"].nunique()
 conflits = conflits[conflits > 1].index
-print(f"fichiers en double : {nb_doublons}")
+print(f"copies en trop : {nb_doublons}")
 print(f"photos à la fois en train et en test : {len(fuites)}")
 print(f"photos rangées dans deux classes : {len(conflits)}")
 '''),
@@ -265,14 +271,18 @@ print(f"photos rangées dans deux classes : {len(conflits)}")
     Une photo recadrée, réduite ou réenregistrée n'a plus la même empreinte MD5, mais
     c'est la même image. On la repère avec une **empreinte perceptuelle** (*dHash*) :
 
-    1. passer l'image en niveaux de gris, réduite à 17 × 16 pixels ;
+    1. passer l'image en niveaux de gris, réduite à 17 pixels de large sur 16 de haut
+       (`im.resize((taille + 1, taille))` ; numpy rendra un tableau de 16 lignes et 17
+       colonnes) ;
     2. comparer chaque pixel à son voisin de droite, ce qui donne 16 × 16 = 256 bits ;
-    3. deux images sont quasi identiques si très peu de bits diffèrent (**distance de
-       Hamming**).
+    3. deux images sont quasi identiques si très peu de bits diffèrent. Le nombre de bits
+       différents s'appelle la **distance de Hamming**.
 
     Complétez `dhash`. Le reste est fourni :
     - la matrice des distances, calculée par blocs pour ménager la mémoire ;
-    - le regroupement : deux images à distance ≤ `SEUIL` vont dans le même **groupe** ;
+    - le regroupement (algorithme *union-find*) : deux images à distance ≤ `SEUIL` vont
+      dans le même **groupe**, et les liens s'enchaînent. Si A est proche de B et B proche
+      de C, alors A, B et C forment un seul groupe, même si A et C sont très différentes ;
     - une planche de paires d'images par tranche de distance.
 
     Ces groupes serviront au découpage : un groupe entier va soit en entraînement, soit en
@@ -280,11 +290,11 @@ print(f"photos rangées dans deux classes : {len(conflits)}")
     """),
     exo('''
 def dhash(chemin, taille=16):
-    """Empreinte perceptuelle : tableau numpy de taille*taille booléens."""
+    """Empreinte perceptuelle : vecteur numpy 1D de taille*taille booléens (pensez à .flatten())."""
     ...
 ''', '''
 def dhash(chemin, taille=16):
-    """Empreinte perceptuelle : tableau numpy de taille*taille booléens."""
+    """Empreinte perceptuelle : vecteur numpy 1D de taille*taille booléens (pensez à .flatten())."""
     im = Image.open(chemin)
     im.draft("L", (4 * taille, 4 * taille))  # JPEG : décodage réduit, plus rapide
     a = np.asarray(im.convert("L").resize((taille + 1, taille), Image.BILINEAR), dtype=np.int16)
@@ -292,6 +302,7 @@ def dhash(chemin, taille=16):
 '''),
     code('''
 # Fourni : distances de Hamming entre toutes les paires, par blocs de 256 images.
+assert dhash(df["chemin"].iloc[0]).shape == (256,), "dhash doit renvoyer un vecteur de 256 booléens"
 empreintes = np.packbits(np.stack([dhash(p) for p in df["chemin"]]), axis=1)   # (n, 32) octets
 n = len(empreintes)
 distances = np.zeros((n, n), dtype=np.uint16)
@@ -320,12 +331,13 @@ def voir_paires(d_min, d_max, k=4, graine=0):
     if len(i) == 0:
         return
     tirage = np.random.default_rng(graine).choice(len(i), size=min(k, len(i)), replace=False)
-    fig, axes = plt.subplots(1, 2 * len(tirage), figsize=(2.4 * 2 * len(tirage), 2))
+    fig, axes = plt.subplots(1, 2 * len(tirage), figsize=(2.4 * 2 * len(tirage), 2), squeeze=False)
     for m, t in enumerate(tirage):
         for c, idx in enumerate((i[t], j[t])):
-            axes[2 * m + c].imshow(Image.open(df["chemin"].iloc[idx]))
-            axes[2 * m + c].set_title(f"{df['officiel'].iloc[idx]} / {df['classe'].iloc[idx]}", fontsize=7)
-            axes[2 * m + c].axis("off")
+            ax = axes[0, 2 * m + c]
+            ax.imshow(Image.open(df["chemin"].iloc[idx]))
+            ax.set_title(f"{df['officiel'].iloc[idx]} / {df['classe'].iloc[idx]}", fontsize=7)
+            ax.axis("off")
     plt.show()
 
 for seuil in (0, 3, 10, 20, 30):
@@ -341,9 +353,10 @@ for seuil in (0, 3, 10, 20, 30):
     Affichez des paires à distance 0, 1-4, 5-9 et 10-20 avec `voir_paires`. À partir de
     quelle distance ne s'agit-il plus de la même photo ?
 
-    ❓ Que se passe-t-il avec un seuil trop large (20, 30) ? Pourquoi les photos de ce jeu,
-    toutes prises sur fond uni, piègent-elles une empreinte aussi simple ? Proposez une
-    méthode plus robuste, par exemple comparer les sorties d'un réseau pré-entraîné.
+    ❓ Que se passe-t-il avec un seuil trop large (20, 30) ? Pourquoi des photos prises
+    sur quelques fonds identiques (papier blanc, bois) piègent-elles une empreinte aussi
+    simple ? La même feuille, reprise en photo un peu décalée, est-elle repérée ? Proposez
+    une méthode plus robuste, par exemple comparer les sorties d'un réseau pré-entraîné.
     """),
     exo('''
 # voir_paires(0, 0) ; voir_paires(1, 4) ; ...
@@ -352,9 +365,11 @@ df["groupe"] = grouper(SEUIL)
 ''', '''
 for d_min, d_max in [(0, 0), (1, 4), (5, 9), (10, 20)]:
     voir_paires(d_min, d_max)
-# Distance 0 : la même photo réenregistrée. Dès 1 à 4 : des feuilles différentes, posées
-# sur le même fond. Un seuil bas suffit : au-delà, les groupes s'enchaînent (« A ressemble
-# à B, qui ressemble à C ») et des centaines de feuilles différentes se retrouvent liées.
+# Distance 0 : la même photo réenregistrée. De 1 à 4 : très peu de paires, en partie la
+# même feuille légèrement décalée, en partie des feuilles voisines sur le même fond. Dès 5 :
+# presque toujours des feuilles différentes. Un seuil bas (3) attrape les vraies copies et ne
+# relie à tort que quelques paires ; plus haut, les groupes s'enchaînent (« A ressemble à B,
+# qui ressemble à C ») et des centaines de feuilles différentes se retrouvent liées.
 SEUIL = 3
 df["groupe"] = grouper(SEUIL)
 melanges = df.groupby("groupe")["officiel"].nunique()
@@ -362,15 +377,17 @@ print(f"seuil {SEUIL} : {df['groupe'].nunique()} groupes ; "
       f"{(melanges > 1).sum()} groupes à cheval sur le train et le test officiels")
 '''),
     md("""
-    ❓ Le MD5 trouvait 24 photos communes au train et au test. Combien en trouvez-vous
-    maintenant ? Qu'en concluez-vous sur les scores publiés avec ce découpage officiel ?
+    ❓ Le MD5 trouvait 24 photos présentes à la fois dans le train et le test officiels.
+    Avec les quasi-doublons, combien de groupes sont à cheval sur les deux, et combien
+    d'images du test officiel cela retire-t-il (partie 2) ? Qu'en concluez-vous sur les
+    scores publiés avec ce découpage officiel ?
 
     ## 2. Découper sans fuite
 
     Règles retenues :
 
-    - **test** = le test officiel, **moins** les images dont un quasi-doublon est en
-      entraînement (on ne garde que des images jamais vues) ;
+    - **test** = le test officiel, **moins** les images dont une copie (quasi) identique
+      est dans le train officiel (futur entraînement ou validation) ;
     - **validation** = 20 % des groupes du train officiel, tirés par classe
       (`StratifiedGroupKFold`) ; elle sert à choisir l'époque et les seuils ;
     - **entraînement** = le reste, sans doublon exact.
@@ -379,9 +396,10 @@ print(f"seuil {SEUIL} : {df['groupe'].nunique()} groupes ; "
 from sklearn.model_selection import StratifiedGroupKFold
 
 # 1. groupes présents dans le train officiel
-# 2. test = test officiel dont le groupe n'est pas dans le train officiel
-# 3. train officiel dédoublonné (drop_duplicates sur "md5"), puis StratifiedGroupKFold(n_splits=5)
-#    -> une partie pour la validation, le reste pour l'entraînement
+# 2. test = test officiel dont le groupe n'est pas dans le train officiel, sans doublon (md5)
+# 3. officiel_train = train officiel dédoublonné (drop_duplicates sur "md5")
+# 4. idx_train, idx_val = next(StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
+#                                .split(officiel_train, officiel_train["classe"], officiel_train["groupe"]))
 # train, val, test = ...
 ''', '''
 from sklearn.model_selection import StratifiedGroupKFold
@@ -407,10 +425,16 @@ print(pd.DataFrame({n: d["classe"].value_counts() for n, d in [("train", train),
     le problème est facile, ou biaisé. Ici, chaque image est résumée par l'histogramme de
     ses couleurs (teinte, saturation, valeur), classé par une régression logistique.
 
+    Pour chaque classe :
+    - le **rappel** est la part des images de cette classe correctement reconnues ;
+    - la **précision** est la part des images prédites dans cette classe qui en sont
+      vraiment ;
+    - le **F1** est la moyenne harmonique des deux.
+
     ### Exercice 3.1
 
     Complétez `histo_hsv`, entraînez la régression sur `train`, puis évaluez-la sur `val`
-    (exactitude et rappel par classe).
+    (`classification_report` donne exactitude, précision, rappel et F1 par classe).
     """),
     exo('''
 from sklearn.linear_model import LogisticRegression
@@ -447,26 +471,44 @@ reference.fit(X_train, train["classe"])
 print(classification_report(val["classe"], reference.predict(X_val), digits=3))
 '''),
     md("""
-    ❓ Quelle classe la couleur seule reconnaît-elle le mieux ? Pourquoi l'acariose
-    est-elle plus difficile ?
+    ❓ Quelle classe la couleur seule reconnaît-elle le mieux, et laquelle le moins bien ?
+    Proposez une explication à partir des images de l'exercice 1.2 (couleur des taches,
+    déformation, fond).
 
     ## 4. Un réseau pré-entraîné (*transfer learning*)
 
     On part d'EfficientNet-B0, entraîné sur ImageNet (1,2 million de photos) : ses
     premières couches savent déjà détecter bords, textures et formes. On remplace sa
-    dernière couche par une couche à 3 sorties, puis on ré-entraîne tout le réseau sur
+    dernière couche par une couche à 3 sorties, puis on réentraîne tout le réseau sur
     nos feuilles.
 
     ### 4.1 Le jeu de données PyTorch et les augmentations (fourni)
 
     Les augmentations (recadrage, rotations, retournements, couleur) montrent au réseau des
     variantes de chaque photo : il apprend des motifs plutôt que des pixels précis.
+
+    Pour l'évaluation, `au_format` complète d'abord chaque image au format 4:3 avec la
+    couleur de ses bords. Sans cela, une photo très allongée (les feuilles de la partie 6
+    font 1920 × 540) serait recadrée au centre, et le réseau ne verrait qu'un quart de la
+    feuille.
     """),
     code('''
 import timm
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
+
+def au_format(im, ratio=4 / 3):
+    """Complète l'image avec la couleur de ses bords pour la ramener au format 4:3."""
+    w, h = im.size
+    grand, petit = max(w, h), min(w, h)
+    grand2, petit2 = max(grand, round(petit * ratio)), max(petit, round(grand / ratio))
+    taille = (grand2, petit2) if w >= h else (petit2, grand2)
+    if taille == (w, h):
+        return im
+    a = np.asarray(im)
+    bords = np.concatenate([a[0], a[-1], a[:, 0], a[:, -1]])
+    return ImageOps.pad(im, taille, color=tuple(int(v) for v in np.median(bords, axis=0)))
 
 MOYENNE, ECART = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)  # normalisation ImageNet
 tf_train = T.Compose([
@@ -478,12 +520,17 @@ tf_train = T.Compose([
     T.ToTensor(),
     T.Normalize(MOYENNE, ECART),
 ])
-tf_eval = T.Compose([
-    T.Resize(int(IMG_SIZE * 1.15)),
-    T.CenterCrop(IMG_SIZE),
-    T.ToTensor(),
-    T.Normalize(MOYENNE, ECART),
-])
+
+def transformation_eval(taille):
+    return T.Compose([
+        T.Lambda(au_format),
+        T.Resize(int(taille * 1.15)),
+        T.CenterCrop(taille),
+        T.ToTensor(),
+        T.Normalize(MOYENNE, ECART),
+    ])
+
+tf_eval = transformation_eval(IMG_SIZE)
 
 class Feuilles(Dataset):
     def __init__(self, chemins, etiquettes, transform):
@@ -517,6 +564,9 @@ print(x.shape, y[:10])
       d'optimisation. Renvoyer la perte moyenne et l'exactitude ;
     - `predire(modele, chargeur)` : en mode évaluation et sans gradient, renvoyer les
       probabilités (softmax) et les vraies étiquettes.
+
+    Envoyez chaque lot sur le matériel avec `x.to(DEVICE)`. Ramenez les probabilités sur
+    le CPU (`.cpu()`) avant `.numpy()`.
     """),
     exo('''
 def entrainer_une_epoque(modele, chargeur, optimiseur, critere):
@@ -558,13 +608,16 @@ def predire(modele, chargeur):
     ### 4.3 Entraîner
 
     - **Poids de classe** : la perte pèse davantage les classes rares.
-    - **Lissage des étiquettes** (0,1) : le réseau devient moins sûr de lui, ce qui rend ses
-      probabilités plus fiables.
+    - **Lissage des étiquettes** (coefficient 0,1) : la cible n'est plus 100 % pour la bonne
+      classe, mais environ 93 %. Le réseau devient moins sûr de lui et sur-apprend moins.
+      Gardez-le en tête à la partie 5 : ses probabilités ne sont pas pour autant des
+      fréquences fiables.
     - **Taux d'apprentissage** en cosinus : il décroît doucement jusqu'à la fin.
-    - **On garde la meilleure époque** sur la validation (pas la dernière).
+    - **On garde la meilleure époque** sur la validation (pas la dernière), puis on
+      recalcule les probabilités de validation avec ce modèle.
 
-    Durée indicative : environ 1 à 2 minutes par époque sur GPU ; sur CPU, comptez 5 à
-    10 minutes par époque en `MODE_RAPIDE`.
+    Durée indicative : environ 2 minutes par époque sur un CPU 4 cœurs en `MODE_RAPIDE`
+    (davantage sur un portable modeste), moins d'une minute sur GPU.
     """),
     code('''
 import copy
@@ -593,20 +646,22 @@ for epoque in range(1, EPOCHS + 1):
           f"({time.time() - t0:.0f} s)")
 
 modele.load_state_dict(meilleur_etat)
+p_val, y_val = predire(modele, dl_val)   # probabilités du MEILLEUR modèle, pas de la dernière époque
 pd.DataFrame(historique).set_index("epoque")[["train", "val"]].plot(figsize=(5, 3), marker="o")
 plt.ylabel("exactitude"); plt.show()
 '''),
     md("""
-    ❓ L'exactitude d'entraînement est-elle plus haute ou plus basse que celle de
-    validation ? Pourquoi les augmentations peuvent-elles inverser l'écart habituel ?
+    ❓ Comparez les exactitudes d'entraînement et de validation au fil des époques. Si
+    celle d'entraînement est plus basse, qu'est-ce qui peut l'expliquer (augmentations,
+    exactitude mesurée pendant que les poids changent) ?
 
     ## 5. Évaluer correctement
 
     ### Exercice 5.1 : sur le test
 
-    Calculez les probabilités sur `dl_test`, affichez le rapport de classification
-    (précision, rappel, F1 par classe) et la matrice de confusion
-    (`ConfusionMatrixDisplay`).
+    Calculez les probabilités sur `dl_test`, puis affichez le rapport de classification
+    et la matrice de confusion (`ConfusionMatrixDisplay`, vraies classes en lignes,
+    prédictions en colonnes).
     """),
     exo('''
 from sklearn.metrics import ConfusionMatrixDisplay
@@ -617,79 +672,103 @@ from sklearn.metrics import ConfusionMatrixDisplay
 ''', '''
 from sklearn.metrics import ConfusionMatrixDisplay
 
-p_val, y_val = predire(modele, dl_val)
 p_test, y_test = predire(modele, dl_test)
 print(classification_report(y_test, p_test.argmax(1), target_names=CLASSES, digits=3))
 ConfusionMatrixDisplay.from_predictions(y_test, p_test.argmax(1), display_labels=CLASSES,
                                         cmap="Greens", colorbar=False)
-plt.title("Test (sans quasi-doublon du train)"); plt.show()
+plt.title("Test (sans copie du train)"); plt.show()
 '''),
     md("""
     ❓ Pour un oléiculteur, quelle erreur coûte le plus cher : une feuille malade déclarée
-    saine, ou une feuille saine déclarée malade ? Lisez-la dans la matrice.
+    saine, ou une feuille saine déclarée malade ? Repérez les cases correspondantes dans
+    la matrice.
 
     ### Exercice 5.2 : savoir dire « je ne sais pas »
 
-    Le modèle renvoie une probabilité par classe. Quand la plus haute est faible, mieux
-    vaut répondre **« incertain »** et faire vérifier la feuille.
+    Le modèle renvoie une probabilité par classe. Quand la plus haute (la **confiance**)
+    est faible, mieux vaut répondre **« incertain »** et faire vérifier la feuille.
 
-    1. Sur la **validation**, tracez l'exactitude en fonction de la part d'images gardées
-       (on garde les plus sûres d'abord).
-    2. Choisissez le seuil de confiance le plus bas qui garde `CIBLE` = 95 % d'exactitude
-       sur la validation.
+    On trie les images de la plus sûre à la moins sûre, puis on trace la **courbe
+    risque-couverture** :
+    - la *couverture* est la part des images sur lesquelles le modèle décide ;
+    - le *risque* est le taux d'erreur sur ces images (1 − exactitude).
+
+    1. Sur la **validation**, tracez l'exactitude en fonction de la couverture.
+    2. Choisissez le seuil de confiance le plus bas qui garde au moins `CIBLE` = 98 %
+       d'exactitude : c'est la confiance de la dernière position où l'exactitude cumulée
+       atteint la cible (`np.nonzero`). Si la cible n'est jamais atteinte, prenez 1,0.
     3. Appliquez ce seuil au **test** : quelle part d'images est décidée, avec quelle
        exactitude ?
     """),
     exo('''
+CIBLE = 0.98
+
 def courbe_risque_couverture(probas, y):
     """Renvoie (couverture, exactitude, seuil), triés par confiance décroissante."""
     ...
 
-CIBLE = 0.95
 # couverture, exactitude, seuils = courbe_risque_couverture(p_val, y_val)
 # SEUIL_INCERTAIN = ...
 ''', '''
+CIBLE = 0.98
+
 def courbe_risque_couverture(probas, y):
     """Renvoie (couverture, exactitude, seuil), triés par confiance décroissante."""
     confiance = probas.max(1)
     ordre = np.argsort(-confiance)
     juste = (probas.argmax(1) == y)[ordre]
-    n = np.arange(1, len(y) + 1)
-    return n / len(y), np.cumsum(juste) / n, confiance[ordre]
+    k = np.arange(1, len(y) + 1)
+    return k / len(y), np.cumsum(juste) / k, confiance[ordre]
 
-CIBLE = 0.95
+def seuil_pour(cible, exactitude, seuils):
+    ok = np.nonzero(exactitude >= cible)[0]
+    return float(seuils[ok.max()]) if len(ok) else 1.0
+
 couverture, exactitude, seuils = courbe_risque_couverture(p_val, y_val)
-ok = np.nonzero(exactitude >= CIBLE)[0]
-SEUIL_INCERTAIN = float(seuils[ok.max()]) if len(ok) else 1.0
+print(f"exactitude globale de validation : {exactitude[-1]:.3f}")
+for c in (0.95, 0.98, 0.99):
+    s = seuil_pour(c, exactitude, seuils)
+    print(f"cible {c:.2f} : seuil {s:.3f}, validation décidée à {(p_val.max(1) >= s).mean():.1%}")
+SEUIL_INCERTAIN = seuil_pour(CIBLE, exactitude, seuils)
+
 plt.plot(couverture, exactitude)
-plt.xlabel("part des images décidées"); plt.ylabel("exactitude sur ces images")
-plt.title("Validation : risque contre couverture"); plt.grid(alpha=0.3); plt.show()
+plt.axhline(CIBLE, color="grey", ls="--", lw=1)
+plt.xlabel("couverture (part des images décidées)"); plt.ylabel("exactitude sur ces images")
+plt.title("Validation : exactitude selon la couverture"); plt.grid(alpha=0.3); plt.show()
 
 decide = p_test.max(1) >= SEUIL_INCERTAIN
 print(f"seuil {SEUIL_INCERTAIN:.3f} : test décidé à {decide.mean():.1%}, "
       f"exactitude sur ces images {(p_test.argmax(1) == y_test)[decide].mean():.1%}")
 '''),
     md("""
-    ## 6. Le vrai test : des feuilles d'autres pays
+    ❓ Sur le test, l'exactitude des images décidées atteint-elle la cible ? Combien de
+    feuilles faudrait-il faire vérifier par un humain ? Ce compromis est-il acceptable pour
+    un drone qui survole une oliveraie ? Remarque : la validation a servi deux fois, pour
+    choisir l'époque puis le seuil. En quoi cela rend-il la courbe un peu optimiste ?
+
+    ## 6. Le vrai test : des feuilles venues d'ailleurs
 
     Le test précédent vient des **mêmes** photographes, du même appareil et de la même
     région que l'entraînement. Deux autres jeux, jamais vus, mesurent la
     **généralisation** :
 
-    - **Turquie** (Diker et al. 2023) : `sağlam` (sain) et `hastalıklı` (œil de paon) ;
+    - **Turquie, autre équipe** (Diker et al. 2023) : `sağlam` (sain) et `hastalıklı`
+      (œil de paon), images très allongées (1920 × 540) ;
     - **Pérou** (vallée d'Algarrobal, 2024) : `Healthy` et `Peacock_Spot`, sur fond blanc.
 
-    Ils ne contiennent pas d'acariose. On mesure donc surtout « sain contre malade ».
+    Ils ne contiennent pas d'acariose. On mesure donc surtout « sain contre malade ». La
+    probabilité d'être malade est la somme des probabilités des deux maladies :
+    `p_malade = 1 − p(sain)`. Une feuille est déclarée malade si `p_malade ≥ 0,5`.
 
     ### Exercice 6.1
 
     Construisez un tableau `externe` (chemin, classe, source) pour les deux jeux, prédisez,
     puis calculez pour chaque source :
 
-    - l'exactitude sain / malade, en comptant comme « malade » toute prédiction autre que
-      `sain` ;
+    - l'exactitude sain / malade ;
     - le rappel des malades (part des feuilles malades détectées) ;
-    - les fausses alertes (part des feuilles saines déclarées malades).
+    - les fausses alertes (part des feuilles saines déclarées malades) ;
+    - la part d'images décidées avec `SEUIL_INCERTAIN`.
     """),
     exo('''
 SOURCES = {
@@ -698,7 +777,7 @@ SOURCES = {
               {"Healthy": "sain", "Peacock_Spot": "oeil_de_paon"}),
 }
 # externe = pd.DataFrame(...)
-# pour chaque source : predire(...), puis exactitude sain/malade, rappel malade, fausses alertes
+# pour chaque source : predire(...), p_malade = 1 - p[:, CLASSES.index("sain")], puis les 4 mesures
 ''', '''
 SOURCES = {
     "Turquie (Diker)": (DATA / "olive_leaf_peacock_diker" / "zeytin", {"sağlam": "sain", "hastalıklı": "oeil_de_paon"}),
@@ -717,14 +796,13 @@ resultats = []
 for source, d in externe.groupby("source"):
     p, y = predire(modele, chargeur(d, tf_eval))
     malade_vrai = y != CLASSES.index("sain")
-    malade_predit = p.argmax(1) != CLASSES.index("sain")
-    decide = p.max(1) >= SEUIL_INCERTAIN
+    malade_predit = 1 - p[:, CLASSES.index("sain")] >= 0.5
     resultats.append({
         "source": source, "images": len(d),
         "exactitude sain/malade": (malade_vrai == malade_predit).mean(),
         "rappel malades": malade_predit[malade_vrai].mean(),
         "fausses alertes": malade_predit[~malade_vrai].mean(),
-        "part décidée (seuil)": decide.mean(),
+        "part décidée (seuil)": (p.max(1) >= SEUIL_INCERTAIN).mean(),
     })
     ConfusionMatrixDisplay.from_predictions(
         [CLASSES[i] for i in y], [CLASSES[i] for i in p.argmax(1)], labels=CLASSES,
@@ -734,8 +812,9 @@ pd.DataFrame(resultats).set_index("source").round(3)
 '''),
     md("""
     ❓ Comparez avec le test de la partie 5. D'où peut venir l'écart : appareil photo,
-    fond, variété d'olivier, stade de la maladie, éclairage ? Qu'en concluez-vous pour des
-    images prises par drone dans une oliveraie française ?
+    format et cadrage des images, fond, variété d'olivier, stade de la maladie,
+    éclairage ? Le seuil « incertain » choisi sur la validation protège-t-il hors source ?
+    Qu'en concluez-vous pour des images prises par drone dans une oliveraie française ?
 
     ## 7. Où regarde le réseau ? (Grad-CAM)
 
@@ -744,10 +823,19 @@ pd.DataFrame(resultats).set_index("source").round(3)
 
     ### Exercice 7.1
 
-    Complétez la classe `GradCAM`. Un *hook* mémorise la sortie de la dernière couche de
-    convolution (`modele.conv_head`) et son gradient. La carte est la somme des cartes
-    d'activation, pondérées par la moyenne de leur gradient, passée dans un ReLU, puis
-    normalisée entre 0 et 1.
+    Complétez `__call__`. Le *hook* (fourni) mémorise la sortie de la dernière couche de
+    convolution (`modele.conv_head`), puis son gradient lors de la rétropropagation.
+    Étapes :
+
+    1. passe avant : `logits = self.modele(x)` ; si `classe` vaut None, prendre la classe
+       prédite ;
+    2. `self.modele.zero_grad()`, puis rétropropager le score de cette classe :
+       `logits[0, classe].backward()` ;
+    3. poids de chaque canal = moyenne du gradient sur la hauteur et la largeur
+       (`dim=(2, 3)`) ;
+    4. carte = somme sur les canaux de poids × activation, dont on ne garde que les valeurs
+       positives (ReLU) ;
+    5. diviser par le maximum pour obtenir des valeurs entre 0 et 1.
     """),
     exo('''
 class GradCAM:
@@ -790,14 +878,16 @@ cam = GradCAM(modele, modele.conv_head)
     code('''
 # Fourni : affiche l'image, puis la carte Grad-CAM, pour quelques erreurs et réussites du test.
 def voir_gradcam(lignes, titre):
-    fig, axes = plt.subplots(2, len(lignes), figsize=(2.8 * len(lignes), 5.2))
+    fig, axes = plt.subplots(2, len(lignes), figsize=(2.8 * len(lignes), 5.2), squeeze=False)
     for k, (_, r) in enumerate(lignes.iterrows()):
         im = Image.open(r["chemin"]).convert("RGB")
-        x = tf_eval(im).unsqueeze(0)
-        carte, c = cam(x)
-        vue = np.asarray(T.CenterCrop(IMG_SIZE)(T.Resize(int(IMG_SIZE * 1.15))(im)))
-        axes[0, k].imshow(vue); axes[0, k].set_title(f"vrai : {r['classe']}", fontsize=8)
-        axes[1, k].imshow(vue); axes[1, k].imshow(np.asarray(Image.fromarray(np.uint8(carte * 255)).resize(vue.shape[1::-1], Image.BILINEAR)), alpha=0.5, cmap="jet")
+        carte, c = cam(tf_eval(im).unsqueeze(0))
+        vue = np.asarray(T.CenterCrop(IMG_SIZE)(T.Resize(int(IMG_SIZE * 1.15))(au_format(im))))
+        chaleur = Image.fromarray(np.uint8(carte * 255)).resize(vue.shape[1::-1], Image.BILINEAR)
+        axes[0, k].imshow(vue)
+        axes[0, k].set_title(f"vrai : {r['classe']}", fontsize=8)
+        axes[1, k].imshow(vue)
+        axes[1, k].imshow(np.asarray(chaleur), alpha=0.5, cmap="jet")
         axes[1, k].set_title(f"prédit : {CLASSES[c]}", fontsize=8)
         for ax in axes[:, k]:
             ax.axis("off")
@@ -812,6 +902,10 @@ voir_gradcam(test_pred[test_pred["classe"] == test_pred["predit"]].sample(5, ran
     ❓ Le réseau regarde-t-il les taches et les déformations, ou les bords et le fond ?
 
     ## 8. Sauvegarder et réutiliser le modèle
+
+    On sauvegarde les poids et tout ce qu'il faut pour les réutiliser : architecture,
+    classes, taille d'image, seuil « incertain ». C'est ce fichier qui serait embarqué sur
+    le drone, après export ONNX.
     """),
     code('''
 chemin_modele = OUT / "modele_feuilles.pt"
@@ -822,17 +916,21 @@ def diagnostiquer(chemin_image, chemin_modele=chemin_modele):
     """Charge le modèle sauvegardé et renvoie (classe ou 'incertain', probabilités)."""
     ck = torch.load(chemin_modele, map_location="cpu", weights_only=True)
     m = timm.create_model(ck["arch"], pretrained=False, num_classes=len(ck["classes"]))
-    m.load_state_dict(ck["state_dict"]); m.eval()
-    x = tf_eval(Image.open(chemin_image).convert("RGB")).unsqueeze(0)
+    m.load_state_dict(ck["state_dict"])
+    m.eval()
+    x = transformation_eval(ck["img_size"])(Image.open(chemin_image).convert("RGB")).unsqueeze(0)
     with torch.no_grad():
         p = torch.softmax(m(x), dim=1)[0].numpy()
     reponse = ck["classes"][p.argmax()] if p.max() >= ck["seuil_incertain"] else "incertain"
-    return reponse, dict(zip(ck["classes"], p.round(3)))
+    return reponse, {c: round(float(v), 3) for c, v in zip(ck["classes"], p)}
 
-print(chemin_modele)
-diagnostiquer(test["chemin"].iloc[0])
+print(f"modèle : {chemin_modele}\\nseuil « incertain » : {SEUIL_INCERTAIN:.3f}")
+for _, r in test.groupby("classe").head(1).iterrows():
+    print(r["classe"], "->", diagnostiquer(r["chemin"]))
 '''),
     md("""
+    Essayez `diagnostiquer` sur une photo de feuille d'olivier prise avec votre téléphone.
+
     ## 9. Pour aller plus loin
 
     1. **Modèle binaire sain / malade** : réentraînez avec deux classes, puis comparez le
@@ -849,10 +947,10 @@ diagnostiquer(test["chemin"].iloc[0])
 
     Une à deux pages :
     - le tableau des effectifs ;
-    - les doublons et fuites trouvés ;
+    - les doublons et fuites trouvés, et le seuil de quasi-doublon choisi ;
     - la référence contre le réseau ;
     - la matrice de confusion du test ;
-    - le seuil « incertain » ;
+    - le seuil « incertain » et son coût ;
     - le tableau hors domaine ;
     - deux cartes Grad-CAM commentées ;
     - vos réponses aux ❓.
@@ -874,15 +972,20 @@ TP2: list[Cell] = [
     puis **compte** les mouches.
 
     **Différence avec le TP 1.** On ne classe plus une image entière. On localise
-    **plusieurs objets petits** dans chaque image, avec une boîte et une classe chacun.
+    **plusieurs petits objets** dans chaque image, avec une boîte et une classe chacun.
 
     **Ce que vous allez apprendre.**
 
     1. Lire des annotations COCO, regarder la taille des objets.
     2. Convertir au format YOLO (exercice de géométrie des boîtes).
     3. Entraîner YOLO11, lire précision, rappel, mAP.
-    4. Passer de la détection au **comptage**, la mesure qui compte pour l'agriculteur.
+    4. Passer de la détection au **comptage**, la mesure qui compte pour l'agriculteur,
+       avec un seuil choisi sur la validation.
     5. Tester sur d'autres pièges (Grèce) : généralisation.
+
+    **Comment travailler.** Enregistrez d'abord ce notebook sous un autre nom. Les
+    cellules « À FAIRE » sont à compléter, les ❓ vont dans le compte rendu, le corrigé est
+    dans `tp/corriges/`.
 
     **Données** (une fois, depuis la racine du projet) :
 
@@ -897,7 +1000,7 @@ TP2: list[Cell] = [
     code(SETUP_COMMON + '''
 import json
 import shutil
-from collections import Counter, defaultdict
+from collections import defaultdict
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -908,24 +1011,24 @@ OUT = ROOT / "runs" / "tp2"
 OUT.mkdir(parents=True, exist_ok=True)
 YOLO_DIR = ROOT / "data" / "processed" / "tp2_mouche"
 
-MODE_RAPIDE = DEVICE == "cpu"
-EPOCHS = 10 if MODE_RAPIDE else 80
-IMGSZ = 640 if MODE_RAPIDE else 1024    # taille des images vues par le réseau
+# Sur CPU, environ 30 s par époque en 640 px (CPU 4 cœurs), soit une demi-heure.
+EPOCHS = 60 if MODE_RAPIDE else 80
+IMGSZ = 640 if MODE_RAPIDE else 1024    # taille (plus grand côté) des images vues par le réseau
 BATCH = 8 if MODE_RAPIDE else 16
 DEVICE_YOLO = 0 if DEVICE == "cuda" else DEVICE
-print(f"MODE_RAPIDE={MODE_RAPIDE}, EPOCHS={EPOCHS}, IMGSZ={IMGSZ}")
+print(f"EPOCHS={EPOCHS}, IMGSZ={IMGSZ}")
 '''),
     md("""
     ## 1. Les données : SmartMcPhail
 
-    210 photos prises dans des pièges McPhail connectés, en oliveraies commerciales.
+    209 photos prises dans des pièges McPhail connectés, en oliveraies commerciales.
     Chaque insecte est encadré et étiqueté `Female`, `Male` (mouche de l'olive) ou
     `Glyphode` (pyrale du jasmin, autre ravageur). L'autrice fournit un découpage
-    train / valid / test, et elle a vérifié qu'aucune photo ne se trouve dans deux
-    découpages.
+    train / valid / test, et aucune photo ne se trouve dans deux découpages.
 
-    Format COCO : un fichier JSON avec la liste des `images`, des `annotations` (boîte
-    `bbox = [x, y, largeur, hauteur]` en pixels, coin haut-gauche) et des `categories`.
+    Format d'annotation COCO : un fichier JSON avec la liste des `images`, des
+    `annotations` (boîte `bbox = [x, y, largeur, hauteur]` en pixels, coin haut-gauche) et
+    des `categories`.
     """),
     code('''
 SMART = DATA / "olive_fly_smartmcphail" / "FinalDataset.coco" / "FinalDataset.coco"
@@ -953,24 +1056,25 @@ pd.crosstab(toutes["classe"], toutes["split"], margins=True)
     md("""
     ### Exercice 1.1 : quelle taille font les insectes ?
 
-    Ajoutez une colonne `taille_rel` = largeur de la boîte / largeur de l'image, tracez son
-    histogramme, puis calculez la taille médiane d'un insecte en pixels **après**
-    redimensionnement de l'image à `IMGSZ` pixels de côté (le plus grand côté).
+    Ajoutez une colonne `taille_rel` = largeur de la boîte / plus grand côté de l'image
+    (`max(W, H)` : la plupart des photos sont en portrait). Tracez son histogramme. Puis,
+    pour `IMGSZ` = 640, 1024 et 1280, calculez la largeur d'un insecte en pixels (médiane
+    et 10e centile) une fois l'image réduite à `IMGSZ`.
 
     ❓ Un détecteur a du mal en dessous d'environ 10 pixels. Quelle valeur d'`IMGSZ`
-    conseillez-vous ?
+    conseillez-vous, et à quel coût de calcul ?
     """),
     exo('''
 # toutes["taille_rel"] = ...
 # toutes["taille_rel"].plot.hist(...)
-# taille_mediane_px = ...
+# for taille in (640, 1024, 1280): px = toutes["taille_rel"] * taille ; print(px.median(), px.quantile(0.1))
 ''', '''
-toutes["taille_rel"] = toutes["w"] / toutes["W"]
+toutes["taille_rel"] = toutes["w"] / toutes[["W", "H"]].max(axis=1)
 toutes["taille_rel"].plot.hist(bins=40, figsize=(5, 3))
-plt.xlabel("largeur de la boîte / largeur de l'image"); plt.show()
+plt.xlabel("largeur de la boîte / plus grand côté de l'image"); plt.show()
 for taille in (640, 1024, 1280):
-    px = (toutes["w"] / toutes[["W", "H"]].max(axis=1) * taille).median()
-    print(f"IMGSZ={taille} : un insecte fait en médiane {px:.0f} px de large")
+    px = toutes["taille_rel"] * taille
+    print(f"IMGSZ={taille} : largeur médiane {px.median():.0f} px, 10e centile {px.quantile(0.1):.0f} px")
 '''),
     md("""
     ### Exercice 1.2 : afficher une image avec ses boîtes
@@ -1017,15 +1121,19 @@ afficher("train", boites["train"]["image"].iloc[0])
 
     ### Exercice 2.1
 
-    Complétez `coco_vers_yolo` : écrivez les étiquettes et copiez les images dans
-    `YOLO_DIR/images/<split>` et `YOLO_DIR/labels/<split>`. La catégorie
-    `Gliphode-Male-Female` est une super-catégorie vide de Roboflow : ignorez-la.
+    Complétez `coco_vers_yolo`. Copiez chaque image dans `<sortie>/images/<split>` et
+    écrivez ses étiquettes dans `<sortie>/labels/<split>`, dans un fichier `.txt` **de
+    même nom** que l'image (`photo.jpg` → `photo.txt`) : c'est ainsi que YOLO associe
+    image et étiquettes. Les `category_id` se traduisent en noms avec `d["categories"]`,
+    puis en numéros de classe avec `correspondance`. La catégorie `Gliphode-Male-Female`
+    est une super-catégorie vide de Roboflow : ignorez toute catégorie absente de
+    `correspondance`.
     """),
     exo('''
 CLASSES = ["femelle", "male", "pyrale"]
 COCO_VERS_ID = {"Female": 0, "Male": 1, "Glyphode": 2}
 
-def coco_vers_yolo(json_coco, dossier_images, split):
+def coco_vers_yolo(json_coco, dossier_images, split, sortie=YOLO_DIR, correspondance=COCO_VERS_ID):
     d = json.loads(Path(json_coco).read_text(encoding="utf-8"))
     ...  # pour chaque image : lignes "id xc yc w h" normalisées, fichier .txt, copie de l'image
 
@@ -1035,40 +1143,45 @@ for split_coco, split_yolo in [("train", "train"), ("valid", "val"), ("test", "t
 CLASSES = ["femelle", "male", "pyrale"]
 COCO_VERS_ID = {"Female": 0, "Male": 1, "Glyphode": 2}
 
-def coco_vers_yolo(json_coco, dossier_images, split):
+def coco_vers_yolo(json_coco, dossier_images, split, sortie=YOLO_DIR, correspondance=COCO_VERS_ID):
     d = json.loads(Path(json_coco).read_text(encoding="utf-8"))
     categories = {c["id"]: c["name"] for c in d["categories"]}
     par_image = defaultdict(list)
     for a in d["annotations"]:
         par_image[a["image_id"]].append(a)
-    (YOLO_DIR / "images" / split).mkdir(parents=True, exist_ok=True)
-    (YOLO_DIR / "labels" / split).mkdir(parents=True, exist_ok=True)
+    (sortie / "images" / split).mkdir(parents=True, exist_ok=True)
+    (sortie / "labels" / split).mkdir(parents=True, exist_ok=True)
     for im in d["images"]:
         W, H = im["width"], im["height"]
         lignes = []
         for a in par_image[im["id"]]:
             nom = categories[a["category_id"]]
-            if nom not in COCO_VERS_ID:
+            if nom not in correspondance:
                 continue
             x, y, w, h = a["bbox"]
-            lignes.append(f"{COCO_VERS_ID[nom]} {(x + w / 2) / W:.6f} {(y + h / 2) / H:.6f} {w / W:.6f} {h / H:.6f}")
+            lignes.append(f"{correspondance[nom]} {(x + w / 2) / W:.6f} {(y + h / 2) / H:.6f} {w / W:.6f} {h / H:.6f}")
         nom_image = Path(im["file_name"])
-        shutil.copy2(dossier_images / nom_image, YOLO_DIR / "images" / split / nom_image.name)
-        (YOLO_DIR / "labels" / split / f"{nom_image.stem}.txt").write_text("\\n".join(lignes), encoding="utf-8")
+        shutil.copy2(dossier_images / nom_image, sortie / "images" / split / nom_image.name)
+        (sortie / "labels" / split / f"{nom_image.stem}.txt").write_text("\\n".join(lignes), encoding="utf-8")
 
 for split_coco, split_yolo in [("train", "train"), ("valid", "val"), ("test", "test")]:
     coco_vers_yolo(SMART / split_coco / "_annotations.coco.json", SMART / split_coco, split_yolo)
 '''),
     code('''
 # Fourni : fichier de description du jeu pour YOLO, et vérification.
-DATA_YAML = YOLO_DIR / "data.yaml"
-DATA_YAML.write_text(
-    f"path: {YOLO_DIR.as_posix()}\\ntrain: images/train\\nval: images/val\\ntest: images/test\\n"
-    + "names:\\n" + "".join(f"  {i}: {n}\\n" for i, n in enumerate(CLASSES)), encoding="utf-8")
+def ecrire_yaml(dossier, noms, train="images/train", val="images/val", test="images/test"):
+    """Ultralytics exige les clés train et val, même pour une simple évaluation."""
+    fichier = dossier / "data.yaml"
+    fichier.write_text(f"path: {dossier.as_posix()}\\ntrain: {train}\\nval: {val}\\ntest: {test}\\n"
+                       + "names:\\n" + "".join(f"  {i}: {n}\\n" for i, n in enumerate(noms)), encoding="utf-8")
+    return fichier
+
+DATA_YAML = ecrire_yaml(YOLO_DIR, CLASSES)
 for split in ("train", "val", "test"):
-    n_img = len(list((YOLO_DIR / "images" / split).iterdir()))
-    n_box = sum(len(f.read_text().split("\\n")) for f in (YOLO_DIR / "labels" / split).glob("*.txt") if f.read_text())
-    print(f"{split:5s} : {n_img} images, {n_box} boîtes")
+    images = sorted((YOLO_DIR / "images" / split).iterdir())
+    sans_txt = [p.name for p in images if not (YOLO_DIR / "labels" / split / f"{p.stem}.txt").exists()]
+    n_box = sum(len([l for l in f.read_text().split("\\n") if l]) for f in (YOLO_DIR / "labels" / split).glob("*.txt"))
+    print(f"{split:5s} : {len(images)} images, {n_box} boîtes, {len(sans_txt)} image(s) sans fichier d'étiquettes")
 print(DATA_YAML.read_text())
 '''),
     md("""
@@ -1077,12 +1190,16 @@ print(DATA_YAML.read_text())
 
     ## 3. Entraîner YOLO11
 
-    `yolo11n.pt` est la plus petite version (2,6 M de paramètres), pré-entraînée sur COCO
-    (80 classes d'objets du quotidien). Ultralytics s'occupe de la boucle, des
-    augmentations (mosaïque, couleurs, échelles) et des courbes.
+    `yolo11n.pt` est la plus petite version (2,6 M de paramètres). Elle est pré-entraînée
+    sur le jeu d'images COCO (80 classes d'objets du quotidien, sans insecte), celui qui a
+    donné son nom au format d'annotation vu en partie 1. Ultralytics s'occupe de la
+    boucle, des augmentations (mosaïque de 4 images, couleurs, échelles) et des courbes.
+    La mosaïque est coupée pendant les dernières époques (`close_mosaic`), pour finir sur
+    des images naturelles.
 
-    Durée indicative : sur CPU en `MODE_RAPIDE`, quelques minutes par époque ; sur GPU,
-    80 époques en 1024 px prennent de l'ordre d'une demi-heure (non mesuré ici).
+    Durée indicative : environ 30 s par époque sur un CPU 4 cœurs en 640 px, soit une
+    demi-heure en `MODE_RAPIDE`. Sur GPU, 80 époques en 1024 px prennent de l'ordre d'une
+    demi-heure (non mesuré ici).
     """),
     code('''
 from ultralytics import YOLO
@@ -1090,29 +1207,37 @@ from ultralytics import YOLO
 modele = YOLO("yolo11n.pt")   # téléchargé automatiquement la première fois
 resultats = modele.train(
     data=str(DATA_YAML), epochs=EPOCHS, imgsz=IMGSZ, batch=BATCH, device=DEVICE_YOLO,
-    seed=SEED, workers=NUM_WORKERS, project=str(OUT), name="mouche", exist_ok=True,
-    plots=True, verbose=False,
+    close_mosaic=min(10, EPOCHS // 5), seed=SEED, workers=NUM_WORKERS,
+    project=str(OUT), name="mouche", exist_ok=True, plots=True, verbose=False,
 )
 MEILLEUR = OUT / "mouche" / "weights" / "best.pt"
+courbes = pd.read_csv(OUT / "mouche" / "results.csv")
+courbes.plot(x="epoch", y=["metrics/mAP50(B)", "metrics/mAP50-95(B)"], figsize=(5, 3))
+plt.title("Validation au fil des époques"); plt.show()
 print(MEILLEUR)
 '''),
     md("""
     ## 4. Évaluer la détection
 
-    - **Précision** : part des boîtes prédites qui sont de vrais insectes de la bonne
-      classe.
-    - **Rappel** : part des vrais insectes trouvés.
-    - **mAP50** : précision moyenne, une boîte comptant comme juste si elle recouvre la
-      vraie à au moins 50 % (IoU ≥ 0,5). **mAP50-95** fait de même avec des recouvrements
-      exigés de 50 à 95 %.
+    - **IoU** (intersection sur union) : aire commune à la boîte prédite et à la vraie
+      boîte, divisée par l'aire de leur réunion (1 = superposition parfaite). Une
+      prédiction est juste si son IoU avec une vraie boîte de même classe est ≥ 0,5.
+    - **Précision** : part des boîtes prédites qui sont justes. **Rappel** : part des vrais
+      insectes trouvés. Ultralytics les donne au seuil de confiance qui maximise le F1.
+    - **AP** (*average precision*) : aire sous la courbe précision-rappel, obtenue en
+      faisant varier le seuil de confiance. **mAP50** : moyenne des AP des classes, à
+      IoU ≥ 0,5. **mAP50-95** : moyenne des mAP pour des IoU exigés de 0,50 à 0,95 ; elle
+      récompense les boîtes bien ajustées.
 
     ### Exercice 4.1
 
-    Évaluez `MEILLEUR` sur le découpage `test` (`YOLO(MEILLEUR).val(..., split="test")`),
-    puis affichez précision, rappel, mAP50 et mAP50-95 par classe.
+    Évaluez `MEILLEUR` sur le découpage `test`, puis affichez précision, rappel, mAP50 et
+    mAP50-95 par classe. Le test ne contient que 7 pyrales : leurs scores sont très
+    incertains.
     """),
     exo('''
-# metriques = YOLO(MEILLEUR).val(data=..., split="test", imgsz=IMGSZ, device=DEVICE_YOLO, plots=True, ...)
+# metriques = YOLO(MEILLEUR).val(data=str(DATA_YAML), split="test", imgsz=IMGSZ, device=DEVICE_YOLO,
+#                                plots=True, project=str(OUT), name="test", exist_ok=True)
 # metriques.box.p, metriques.box.r, metriques.box.ap50, metriques.box.ap  (un élément par classe)
 ''', '''
 metriques = YOLO(MEILLEUR).val(data=str(DATA_YAML), split="test", imgsz=IMGSZ, batch=BATCH,
@@ -1121,146 +1246,191 @@ metriques = YOLO(MEILLEUR).val(data=str(DATA_YAML), split="test", imgsz=IMGSZ, b
 tableau = pd.DataFrame({
     "précision": metriques.box.p, "rappel": metriques.box.r,
     "mAP50": metriques.box.ap50, "mAP50-95": metriques.box.ap,
-}, index=[metriques.names[int(i)] for i in metriques.box.ap_class_index]).round(3)
+}, index=[metriques.names[int(i)] for i in metriques.box.ap_class_index])
 tableau.loc["toutes"] = [metriques.box.mp, metriques.box.mr, metriques.box.map50, metriques.box.map]
 tableau.round(3)
 '''),
     md("""
-    ❓ Ouvrez `runs/tp2/test/confusion_matrix.png`. Le détecteur confond-il surtout
-    femelles et mâles, ou rate-t-il des insectes (colonne « background ») ?
+    ❓ Ouvrez `runs/tp2/test/confusion_matrix.png` (à la racine du projet). Attention :
+    Ultralytics place les vraies classes en colonnes (axe « True ») et les prédictions en
+    lignes, à l'inverse de la matrice du TP 1. Le détecteur confond-il surtout femelles et
+    mâles, ou rate-t-il des insectes (ligne « background » : insectes réels non
+    détectés) ? Que compte la colonne « background » ?
 
     ## 5. Du détecteur au comptage
 
     L'agriculteur n'a pas besoin de boîtes. Il a besoin du **nombre de mouches** par
-    piège. On compte les détections de femelles et de mâles au-dessus d'un seuil de
-    confiance, puis on compare au vrai nombre.
+    piège. On compte les détections de femelles et de mâles dont la confiance dépasse un
+    seuil `CONF`. Ce seuil est un réglage : on le choisit sur la **validation**, comme le
+    seuil « incertain » du TP 1, puis on l'applique **une seule fois** au test.
 
+    La fonction `detections` (fournie) passe chaque image une fois dans le détecteur, avec
+    un seuil très bas, et garde classes et confiances : on peut ensuite compter pour
+    n'importe quel seuil sans tout recalculer.
+    """),
+    code('''
+detecteur = YOLO(MEILLEUR)
+
+def detections(images):
+    """{nom d'image: (classes, confiances)} pour une liste de chemins d'images."""
+    sortie = {}
+    for image in images:
+        r = detecteur.predict(str(image), conf=0.01, imgsz=IMGSZ, device=DEVICE_YOLO,
+                              max_det=1000, verbose=False)[0]
+        sortie[Path(image).name] = (r.boxes.cls.cpu().numpy().astype(int), r.boxes.conf.cpu().numpy())
+    return sortie
+
+def vrais_comptes(split):
+    """{nom d'image: nombre de mouches (femelles + mâles) annotées}."""
+    comptes = {}
+    for image in (YOLO_DIR / "images" / split).iterdir():
+        lignes = (YOLO_DIR / "labels" / split / f"{image.stem}.txt").read_text().split("\\n")
+        comptes[image.name] = sum(1 for l in lignes if l and int(l.split()[0]) in (0, 1))
+    return comptes
+
+dets = {split: detections(sorted((YOLO_DIR / "images" / split).iterdir())) for split in ("val", "test")}
+vrais = {split: vrais_comptes(split) for split in ("val", "test")}
+'''),
+    md("""
     ### Exercice 5.1
 
-    Pour chaque image du test, comptez les mouches prédites (classes 0 et 1, confiance ≥
-    `CONF`) et les vraies (fichiers d'étiquettes). Calculez l'erreur absolue moyenne et
-    tracez prédit contre vrai.
+    Écrivez `compter(dets, vrais, conf)`, qui renvoie un tableau image / vrai / prédit (on
+    compte les classes 0 et 1 dont la confiance est ≥ `conf`). Sur la **validation**,
+    balayez `conf` de 0,05 à 0,6 et retenez celui qui minimise l'erreur absolue moyenne.
+    Appliquez-le au **test** : erreur absolue moyenne, totaux, nuage prédit contre vrai.
     """),
     exo('''
-CONF = 0.25
-# detecteur = YOLO(MEILLEUR)
-# pour chaque image de YOLO_DIR/images/test : detecteur.predict(image, conf=CONF, imgsz=IMGSZ, verbose=False)
-# r.boxes.cls -> classes prédites ; vraies classes : premier nombre de chaque ligne du .txt
+def compter(dets, vrais, conf):
+    ...  # DataFrame avec colonnes image, vrai, predit
+
+# balayage sur dets["val"] -> CONF ; puis comptes_test = compter(dets["test"], vrais["test"], CONF)
 ''', '''
-CONF = 0.25
-detecteur = YOLO(MEILLEUR)
-comptes = []
-for image in sorted((YOLO_DIR / "images" / "test").iterdir()):
-    r = detecteur.predict(str(image), conf=CONF, imgsz=IMGSZ, device=DEVICE_YOLO, verbose=False)[0]
-    predit = int(sum(int(c) in (0, 1) for c in r.boxes.cls.tolist()))
-    etiquettes = (YOLO_DIR / "labels" / "test" / f"{image.stem}.txt").read_text().split("\\n")
-    vrai = sum(1 for l in etiquettes if l and int(l.split()[0]) in (0, 1))
-    comptes.append({"image": image.name, "vrai": vrai, "predit": predit})
-comptes = pd.DataFrame(comptes)
+def compter(dets, vrais, conf):
+    lignes = []
+    for nom, (classes, confiances) in dets.items():
+        predit = int(((confiances >= conf) & np.isin(classes, (0, 1))).sum())
+        lignes.append({"image": nom, "vrai": vrais[nom], "predit": predit})
+    return pd.DataFrame(lignes)
+
+balayage = []
+for conf in np.arange(0.05, 0.61, 0.05):
+    c = compter(dets["val"], vrais["val"], conf)
+    balayage.append({"conf": round(conf, 2), "erreur absolue moyenne": (c["predit"] - c["vrai"]).abs().mean(),
+                     "total prédit": c["predit"].sum(), "total vrai": c["vrai"].sum()})
+balayage = pd.DataFrame(balayage)
+display(balayage.round(2))
+CONF = float(balayage.loc[balayage["erreur absolue moyenne"].idxmin(), "conf"])
+
+comptes = compter(dets["test"], vrais["test"], CONF)
 mae = (comptes["predit"] - comptes["vrai"]).abs().mean()
-print(f"erreur absolue moyenne : {mae:.2f} mouche(s) par image ; "
-      f"total vrai {comptes['vrai'].sum()}, total prédit {comptes['predit'].sum()}")
+print(f"CONF = {CONF} (choisi sur la validation) ; test : erreur absolue moyenne {mae:.2f} "
+      f"mouche(s) par image ; total vrai {comptes['vrai'].sum()}, total prédit {comptes['predit'].sum()}")
 plt.scatter(comptes["vrai"], comptes["predit"], alpha=0.6)
 m = comptes[["vrai", "predit"]].max().max()
 plt.plot([0, m], [0, m], "k--", lw=1); plt.xlabel("mouches (vrai)"); plt.ylabel("mouches (prédit)")
 plt.title("Comptage sur le test"); plt.show()
 '''),
     md("""
-    ❓ Faites varier `CONF` (0,1 ; 0,25 ; 0,5). Comment évoluent l'erreur de comptage et le
-    total ? Quel seuil choisiriez-vous pour décider d'un traitement ?
+    ❓ Sur la validation, comment évoluent l'erreur de comptage et le total quand `CONF`
+    passe de 0,05 à 0,6 ? Quel seuil retenez-vous pour décider d'un traitement, et que
+    donne-t-il sur le test ?
 
     ## 6. Le vrai test : d'autres pièges
 
     ### 6.1 DIRT (Grèce, 2018)
 
-    291 images de pièges McPhail, avec des insectes flottant dans le liquide. Tous sont
-    annotés en polygones, sous une seule classe `insect`. On évalue donc la capacité à
-    **trouver les insectes**, sans distinguer les classes (`single_cls=True`).
+    271 images annotées (291 dans l'archive) de pièges McPhail, avec des insectes flottant
+    dans le liquide. Les annotations ont une seule classe, `insect`, qui couvre **tous**
+    les insectes du piège, y compris d'autres espèces que la mouche de l'olive. On évalue
+    donc la capacité à **trouver les insectes**, sans distinguer les classes
+    (`single_cls=True`). Pour comparer à armes égales, réévaluez aussi le test
+    SmartMcPhail avec `single_cls=True`.
 
     ### Exercice 6.1
 
-    Convertissez DIRT au format YOLO, avec une seule classe et un découpage `test`
-    seulement. Les annotations COCO contiennent aussi `bbox` : utilisez-la. Évaluez
-    ensuite le détecteur avec `single_cls=True`.
+    Convertissez DIRT au format YOLO avec votre `coco_vers_yolo` (annotations dans
+    `instances_default.json`, une seule classe : `correspondance={"insect": 0}`, sortie
+    dans `data/processed/tp2_dirt`, découpage `test`). Écrivez son `data.yaml` avec
+    `ecrire_yaml`. Évaluez ensuite le détecteur avec `single_cls=True`, sur DIRT et sur le
+    test SmartMcPhail.
     """),
     exo('''
 DIRT = DATA / "olive_fly_dirt_coco" / "DIRT" / "DIRT"
 DIRT_YOLO = ROOT / "data" / "processed" / "tp2_dirt"
-# même conversion que coco_vers_yolo, mais avec une seule classe (0) ; puis data.yaml (val et test = images/test)
-# metriques_dirt = YOLO(MEILLEUR).val(data=..., split="test", single_cls=True, ...)
+# coco_vers_yolo(DIRT / "instances_default.json", DIRT, "test", sortie=DIRT_YOLO, correspondance={"insect": 0})
+# yaml_dirt = ecrire_yaml(DIRT_YOLO, ["insecte"], train="images/test", val="images/test")
+# YOLO(MEILLEUR).val(data=..., split="test", single_cls=True, project=str(OUT), name="dirt", ...)
 ''', '''
 DIRT = DATA / "olive_fly_dirt_coco" / "DIRT" / "DIRT"
 DIRT_YOLO = ROOT / "data" / "processed" / "tp2_dirt"
-d = json.loads((DIRT / "instances_default.json").read_text(encoding="utf-8"))
-par_image = defaultdict(list)
-for a in d["annotations"]:
-    par_image[a["image_id"]].append(a)
-(DIRT_YOLO / "images" / "test").mkdir(parents=True, exist_ok=True)
-(DIRT_YOLO / "labels" / "test").mkdir(parents=True, exist_ok=True)
-for im in d["images"]:
-    W, H = im["width"], im["height"]
-    lignes = [f"0 {(x + w / 2) / W:.6f} {(y + h / 2) / H:.6f} {w / W:.6f} {h / H:.6f}"
-              for x, y, w, h in (a["bbox"] for a in par_image[im["id"]])]
-    shutil.copy2(DIRT / im["file_name"], DIRT_YOLO / "images" / "test" / Path(im["file_name"]).name)
-    (DIRT_YOLO / "labels" / "test" / f"{Path(im['file_name']).stem}.txt").write_text("\\n".join(lignes), encoding="utf-8")
-yaml_dirt = DIRT_YOLO / "data.yaml"
-yaml_dirt.write_text(f"path: {DIRT_YOLO.as_posix()}\\ntrain: images/test\\nval: images/test\\ntest: images/test\\n"
-                     "names:\\n  0: insecte\\n", encoding="utf-8")
+coco_vers_yolo(DIRT / "instances_default.json", DIRT, "test", sortie=DIRT_YOLO, correspondance={"insect": 0})
+yaml_dirt = ecrire_yaml(DIRT_YOLO, ["insecte"], train="images/test", val="images/test")
 
-metriques_dirt = YOLO(MEILLEUR).val(data=str(yaml_dirt), split="test", single_cls=True, imgsz=IMGSZ,
-                                    batch=BATCH, device=DEVICE_YOLO, project=str(OUT), name="dirt",
-                                    exist_ok=True, verbose=False)
-print(f"DIRT : précision {metriques_dirt.box.mp:.3f}, rappel {metriques_dirt.box.mr:.3f}, "
-      f"mAP50 {metriques_dirt.box.map50:.3f}")
+lignes = []
+for nom, yaml, dossier in [("SmartMcPhail (test)", DATA_YAML, "test_single"), ("DIRT", yaml_dirt, "dirt")]:
+    m = YOLO(MEILLEUR).val(data=str(yaml), split="test", single_cls=True, imgsz=IMGSZ, batch=BATCH,
+                           device=DEVICE_YOLO, project=str(OUT), name=dossier, exist_ok=True, verbose=False)
+    lignes.append({"jeu": nom, "précision": m.box.mp, "rappel": m.box.mr, "mAP50": m.box.map50})
+pd.DataFrame(lignes).set_index("jeu").round(3)
 '''),
     md("""
-    ❓ Le score s'effondre-t-il ? Regardez quelques images DIRT. Qu'est-ce qui change :
-    liquide, reflets, densité d'insectes, cadrage ?
+    ❓ Comparez la mAP50 mono-classe sur SmartMcPhail et sur DIRT. Le score s'effondre-t-il ?
+    Regardez `runs/tp2/dirt/val_batch0_labels.jpg` (vérité) et `val_batch0_pred.jpg`
+    (prédictions). Qu'est-ce qui change : liquide, reflets, densité d'insectes, cadrage,
+    autres espèces que le modèle n'a jamais vues ?
 
     ### 6.2 Piège McPhail numérique (Leucade, 2022)
 
-    125 images, sans boîtes, tirées au hasard dans six pièges et cinq niveaux de capture.
-    Le fichier `counts.csv` donne pour chaque image (`image_file`) le nombre total de
-    mouches visibles, recompté à l'aveugle par un expert (`expert_count`). C'est
-    exactement la mesure utile au terrain. La colonne `pipeline_count` est un incrément
-    journalier : ne pas la comparer à vos comptages.
+    125 images, sans boîtes, tirées au hasard dans six pièges. Le fichier `counts.csv`
+    donne pour chaque image (`image_file`) le nombre total de mouches visibles, recompté à
+    l'aveugle par un expert (`expert_count`). C'est exactement la mesure utile sur le
+    terrain. Attention à deux colonnes :
+    - `pipeline_count` est un incrément journalier : ne la comparez pas à vos comptages ;
+    - `density_bin` classe les images selon cet incrément, pas selon le contenu du piège.
+      Pour étudier l'erreur selon la densité réelle, faites vos propres tranches
+      d'`expert_count` (`pd.cut`).
 
     ### Exercice 6.2
 
-    Prédisez le nombre de mouches de chaque image et comparez-le au comptage de l'expert :
-    erreur absolue moyenne, nuage de points, puis erreur par niveau de capture
-    (`density_bin`).
+    Prédisez le nombre de mouches de chaque image, avec le `CONF` choisi sur la
+    validation. Comparez-le au comptage de l'expert : erreur absolue moyenne, nuage de
+    points, puis erreur par tranche de densité réelle.
     """),
     exo('''
 DMT = DATA / "olive_fly_digital_mcphail" / "Zenodo_DMT_validation_dataset"
 experts = pd.read_csv(DMT / "counts.csv")
-# pour chaque ligne : DMT / "images" / image_file -> detecteur.predict(...) -> nombre de mouches
-# comparez à expert_count
+# dets_dmt = detections([DMT / "images" / nom for nom in experts["image_file"]])
+# compter les classes 0 et 1 au-dessus de CONF, comparer à expert_count
 ''', '''
 DMT = DATA / "olive_fly_digital_mcphail" / "Zenodo_DMT_validation_dataset"
 experts = pd.read_csv(DMT / "counts.csv")
-predits = []
-for nom in experts["image_file"]:
-    res = detecteur.predict(str(DMT / "images" / nom), conf=CONF, imgsz=IMGSZ,
-                            device=DEVICE_YOLO, verbose=False)[0]
-    predits.append(int(sum(int(c) in (0, 1) for c in res.boxes.cls.tolist())))
-dmt = experts.assign(predit=predits).rename(columns={"expert_count": "expert"})
+dets_dmt = detections([DMT / "images" / nom for nom in experts["image_file"]])
+dmt = compter(dets_dmt, dict(zip(experts["image_file"], experts["expert_count"])), CONF)
+dmt = dmt.rename(columns={"vrai": "expert"})
 dmt["erreur"] = (dmt["predit"] - dmt["expert"]).abs()
-print(f"{len(dmt)} images ; erreur absolue moyenne {dmt['erreur'].mean():.2f}")
-display(dmt.groupby("density_bin")[["expert", "predit", "erreur"]].mean().round(1))
+dmt["tranche"] = pd.cut(dmt["expert"], [-1, 0, 5, 15, 40, 10_000], labels=["0", "1-5", "6-15", "16-40", "41+"])
+print(f"{len(dmt)} images ; erreur absolue moyenne {dmt['erreur'].mean():.2f} ; "
+      f"total expert {dmt['expert'].sum()}, total prédit {dmt['predit'].sum()}")
+display(dmt.groupby("tranche", observed=True)[["expert", "predit", "erreur"]].mean().round(1))
 plt.scatter(dmt["expert"], dmt["predit"], alpha=0.6)
 m = dmt[["expert", "predit"]].max().max()
 plt.plot([0, m], [0, m], "k--", lw=1); plt.xlabel("comptage de l'expert"); plt.ylabel("mouches prédites")
 plt.title("Leucade : comptage hors source"); plt.show()
 '''),
     md("""
+    ❓ L'erreur augmente-t-elle avec le nombre de mouches dans le piège ? Pourquoi un piège
+    plein (insectes qui se chevauchent, abîmés) est-il plus difficile ? Ce compteur
+    suffirait-il pour décider d'un traitement ?
+
     ## 7. Pour aller plus loin
 
     1. **Petits objets** : découpez chaque image en tuiles de 640 px qui se recouvrent,
        détectez sur chaque tuile, puis fusionnez les boîtes. La bibliothèque SAHI fait
-       cela : `uv pip install sahi`. Le rappel augmente-t-il ?
-    2. **Plus de données** : ajoutez le jeu croate de Zadar (`olive_fly_zadar`, boîtes
-       Pascal VOC) à l'entraînement. Écrivez la conversion VOC → YOLO.
+       cela ; essayez-la sans modifier l'environnement du projet :
+       `uv run --with sahi jupyter lab tp/`. Le rappel augmente-t-il ?
+    2. **Plus de données** : ajoutez le jeu croate de Zadar à l'entraînement
+       (`uv run agridrone data download olive_fly_zadar`, environ 900 Mo, boîtes Pascal
+       VOC). Écrivez la conversion VOC → YOLO.
     3. **Un modèle plus grand** : `yolo11s.pt`. Que gagne-t-on en mAP, et que perd-on en
        vitesse ?
     4. **Vers le drone** : les pièges jaunes englués peuvent être photographiés par un
@@ -1273,7 +1443,7 @@ plt.title("Leucade : comptage hors source"); plt.show()
     - effectifs et taille des insectes ;
     - choix d'`IMGSZ` justifié ;
     - tableau des métriques du test ;
-    - erreur de comptage et seuil choisi ;
+    - seuil `CONF` choisi sur la validation et erreur de comptage sur le test ;
     - résultats hors source (DIRT, Leucade) ;
     - vos réponses aux ❓.
     """),

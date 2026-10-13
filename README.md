@@ -166,6 +166,7 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : 
 | 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu), ablation RVB | `agridrone train -c configs/segmentation/unet_5bandes.yaml` ; [reports/baseline_results.md](reports/baseline_results.md) § 2 | fait (aucun jeu public pour le blé : chaîne validée sur WeedsGalore, inventaire § 7.2) |
 | 6 | Rapport des baselines, export ONNX, temps d'inférence | `agridrone export --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 3 et 4 | fait (temps Jetson à mesurer sur la cible) |
 | Olivier | Inventaire des données (maladies, ravageurs, drone multispectral, fruits), registre téléchargeable | `agridrone data download --project olive` ; [reports/data_inventory_olivier.md](reports/data_inventory_olivier.md) | inventaire fait (33 jeux téléchargeables, 7 manuels) ; modèles à faire |
+| TP | Travaux pratiques : reconnaître les maladies (feuilles) et les parasites (mouche de l'olive dans les pièges) | `uv run jupyter lab tp/` ; [tp/README.md](tp/README.md) | fait (notebooks élève et corrigés) |
 
 Données, de bout en bout (détails dans [reports/data_pipeline.md](reports/data_pipeline.md)) :
 
