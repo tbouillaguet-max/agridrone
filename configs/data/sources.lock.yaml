@@ -3,6 +3,12 @@ files:
   kaggle_yellowrust_2223/yellowrust-2223-dataset.zip:
     sha256: 6f2f971f451bedbfb9879e7e8bc763f562571004a1ab32db7d6fc9dfd7ad995a
     size: 289699022
+  olive_leaf_peacock_diker/zeytin.zip:
+    sha256: 3ce81c348768fd3d89fb4f97aeec4b891e0d0b5a97b3595cefcda9dfc6cd539d
+    size: 737053307
+  olive_leaf_peacock_peru/peacock-spot-detection-in-olive-leaves.zip:
+    sha256: 7e9ba611ce2ba8dbf286dd976a6e559dd698abc7c4624180c1aedbb2f13dcbdf
+    size: 331394080
   olive_leaf_tacna/224x224.zip:
     sha256: 6a8403411695066653190709e6606f9ca8590e3f10841ac70e16fd4b448ab40a
     size: 2890450
