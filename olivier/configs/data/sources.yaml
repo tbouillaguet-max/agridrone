@@ -1,0 +1,901 @@
+# Registre des sources de données du projet OLIVIER (inventaire du 12 octobre 2026 :
+# olivier/reports/data_inventory.md).
+#
+# Projet académique, non commercial (confirmé le 2026-10-12) : toute source
+# téléchargeable est récupérée par défaut (`uv run agridrone data download --project olivier`),
+# quelle que soit sa licence, pour que chaque expérience se reproduise sans option.
+#
+# Chaque source indique sa licence, la preuve de vérification et l'attribution à
+# reproduire. Le statut décrit la licence ; il ne bloque ni le téléchargement ni
+# l'entraînement :
+#   retained      : licence permissive (CC BY, CC0, MIT...), provenance établie ;
+#   candidate     : licence permissive déclarée, provenance à confirmer ;
+#   noncommercial : licence non commerciale ou inconnue (usage académique) ;
+#   manual        : pas de téléchargement automatique (formulaire, compte, accord,
+#                   dépôt qui refuse les accès automatisés) : à faire à la main ;
+#   excluded      : re-publication ou compilation d'autres jeux, jamais téléchargée.
+# Liste lisible par tous : olivier/LICENCES_DONNEES.txt, régénérée par
+# `uv run agridrone data licences --project olivier`.
+#
+# Sommes de contrôle : celles publiées par le fournisseur (Zenodo, Dataverse, figshare :
+# md5 ; Mendeley : sha256) sont recopiées ici. Pour Kaggle, GFZ et S3, qui n'en publient
+# pas, le premier téléchargement enregistre le sha256 dans sources.lock.yaml ;
+# les suivants sont vérifiés contre lui.
+
+# Dépôts git : figés à un commit (champ `commit`). Listes de milliers de fichiers :
+# manifestes CSV dans manifests/ (champ `files_manifest`).
+
+sources:
+  olive_icaerus_xylella_health:
+    title: "ICAERUS (Taal) : état sanitaire d'oliviers et Xylella, vignettes RVB et NDVI par arbre"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Taal S.r.l. (2024). Ground Truth Data (projet européen ICAERUS). Zenodo, doi:10.5281/zenodo.13120763"
+    provider: zenodo
+    homepage: https://zenodo.org/records/13120763
+    notes: "Vignettes d'arbres (RVB et NDVI) issues de vols DJI Mavic 3M du 25 mai 2024 (Italie probable), classées par état sanitaire : 1 asymptomatique, 2 symptômes légers, 3+4 symptômes évidents ou arbre dépéri (Xylella). Contient des images augmentées (préfixe « i_ ») : à écarter des tests. Mêmes vols que olive_icaerus_raw_1 et _2."
+    files:
+      - name: "rgb_trees.zip"
+        url: "https://zenodo.org/api/records/13120763/files/rgb_trees.zip/content"
+        size: 2374143516
+        md5: 589a90caaa43fd993db1046299e2eaee
+      - name: "ndvi_trees.zip"
+        url: "https://zenodo.org/api/records/13120763/files/ndvi_trees.zip/content"
+        size: 1690938302
+        md5: 7776f7a83eb2a828695e63c9356c4bb6
+      - name: "labels.zip"
+        url: "https://zenodo.org/api/records/13120763/files/labels.zip/content"
+        size: 26887
+        md5: 2c82f46e4dc89ad220e0475fa112cebe
+
+  olive_icaerus_tree_detection:
+    title: "ICAERUS (Taal) : détection des houppiers d'oliviers (boîtes YOLO)"
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Taal S.r.l. (2024). Tree detected (projet européen ICAERUS). Zenodo, doi:10.5281/zenodo.13121962"
+    provider: zenodo
+    homepage: https://zenodo.org/records/13121962
+    notes: "Photos RVB DJI Mavic 3M (mai 2024) annotées en boîtes YOLO ; le dossier train_original contient les images non augmentées (train.zip : augmentées)."
+    files:
+      - name: "train_original.zip"
+        url: "https://zenodo.org/api/records/13121962/files/train_original.zip/content"
+        size: 215814616
+        md5: e711f261abdd6f8f93e28cf13c0590ff
+      - name: "valid.zip"
+        url: "https://zenodo.org/api/records/13121962/files/valid.zip/content"
+        size: 61737352
+        md5: 492b5c57762d6e526c9f2f15f7582028
+      - name: "test.zip"
+        url: "https://zenodo.org/api/records/13121962/files/test.zip/content"
+        size: 31420490
+        md5: e4b68cd806f478476b157195c7b58b96
+      - name: "train.zip"
+        url: "https://zenodo.org/api/records/13121962/files/train.zip/content"
+        size: 2808291881
+        md5: 0798f89acbccfacdfcf863bbf3d72a63
+
+  olive_icaerus_raw_1:
+    title: "ICAERUS (Taal) : images brutes DJI Mavic 3M, RVB + multispectral (partie 1)"
+    task: segmentation
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Taal S.r.l. (2024). raw drone sensing data - 1 (projet européen ICAERUS). Zenodo, doi:10.5281/zenodo.12943015"
+    provider: zenodo
+    homepage: https://zenodo.org/records/12943015
+    notes: "Une archive par vol (25 mai 2024) : photos RVB, images multispectrales (vert, rouge, red-edge, PIR) et fichiers de mission .mrk ; géoréférencement dans les EXIF. Sans étiquette : les états sanitaires sont dans olive_icaerus_xylella_health. Volume important."
+    files:
+      - name: "DJI_202405251139_003_leccino.zip"
+        url: "https://zenodo.org/api/records/12943015/files/DJI_202405251139_003_leccino.zip/content"
+        size: 3823028487
+        md5: 32dbebdbe0e938150a065cdca82e9dc4
+      - name: "DJI_202405251139_004_varietafrancese.zip"
+        url: "https://zenodo.org/api/records/12943015/files/DJI_202405251139_004_varietafrancese.zip/content"
+        size: 4071267964
+        md5: 1cff553695cae00a5b8a9341912ed55a
+      - name: "DJI_202405251220_005_cimadimelfimisto.zip"
+        url: "https://zenodo.org/api/records/12943015/files/DJI_202405251220_005_cimadimelfimisto.zip/content"
+        size: 3007144849
+        md5: 26d0f860226288a25b95817df144d4a3
+      - name: "DJI_202405251220_006_ulivigrandi.zip"
+        url: "https://zenodo.org/api/records/12943015/files/DJI_202405251220_006_ulivigrandi.zip/content"
+        size: 19747758102
+        md5: 546ac72d2452c4c0c993e2cd1393997a
+      - name: "DJI_202405251301_007_ulivigrandi.zip"
+        url: "https://zenodo.org/api/records/12943015/files/DJI_202405251301_007_ulivigrandi.zip/content"
+        size: 4914744113
+        md5: 6463dc11acc4c62ca09a31912a0119c6
+
+  olive_icaerus_raw_2:
+    title: "ICAERUS (Taal) : images brutes DJI Mavic 3M, RVB + multispectral (partie 2)"
+    task: segmentation
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Taal S.r.l. (2024). raw drone sensing data - 2 (projet européen ICAERUS). Zenodo, doi:10.5281/zenodo.12924461"
+    provider: zenodo
+    homepage: https://zenodo.org/records/12924461
+    notes: "Une archive par vol (25 mai 2024) : photos RVB, images multispectrales (vert, rouge, red-edge, PIR) et fichiers de mission .mrk ; géoréférencement dans les EXIF. Sans étiquette : les états sanitaires sont dans olive_icaerus_xylella_health. Volume important."
+    files:
+      - name: "DJI_202405251728_001_montalbanosecolari.zip"
+        url: "https://zenodo.org/api/records/12924461/files/DJI_202405251728_001_montalbanosecolari.zip/content"
+        size: 15306793182
+        md5: f7a0568b46a1f89164aafa596ebc82be
+      - name: "DJI_202405251810_002_montalbanosecolari.zip"
+        url: "https://zenodo.org/api/records/12924461/files/DJI_202405251810_002_montalbanosecolari.zip/content"
+        size: 12451863116
+        md5: f606ebd154235531387a9b2ec24b7d47
+      - name: "DJI_202405251857_002_irriguo.zip"
+        url: "https://zenodo.org/api/records/12924461/files/DJI_202405251857_002_irriguo.zip/content"
+        size: 8352163196
+        md5: 9cc07d17ba4d3bef9f60f3d8feaffbcc
+
+  olive_spade_vitafields:
+    title: "SPADE OC2 / VITAFields : oliviers méditerranéens, orthomosaïques RVB et 4 bandes annotées"
+    task: segmentation
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Kougianos G., Kerasiotis A., Petsa M., Taoulai E. (2026). SPADE OC2 Mediterranean Olive trees dataset (E1) - VITAFields. Zenodo, doi:10.5281/zenodo.21510492"
+    provider: zenodo
+    homepage: https://zenodo.org/records/21510492
+    notes: "Orthomosaïques RVB et multispectrale 4 bandes, tuiles d'orthomosaïque annotées (polygones LabelMe, masques), images brutes et paramètres de caméra ; oliviers adultes (Grèce probable)."
+    files:
+      - name: "Camera_parameters.zip"
+        url: "https://zenodo.org/api/records/21510492/files/Camera_parameters.zip/content"
+        size: 964
+        md5: d0370fe02fb73ab6f367fa7dc9cd89b3
+      - name: "Ortho_tiles.zip"
+        url: "https://zenodo.org/api/records/21510492/files/Ortho_tiles.zip/content"
+        size: 1061130508
+        md5: 05f3249a012c7ecdcef5de5d83addc03
+      - name: "CAR42_rgb_orthomosaic.tif"
+        url: "https://zenodo.org/api/records/21510492/files/CAR42_rgb_orthomosaic.tif/content"
+        size: 1951283056
+        md5: 4d62be10716cf59f5ab7d45d1dd60726
+      - name: "CAR42_multi_orthomosaic.tif"
+        url: "https://zenodo.org/api/records/21510492/files/CAR42_multi_orthomosaic.tif/content"
+        size: 2601662666
+        md5: c5e678e993a3e97b4a5a09d4671af30f
+      - name: "Raw_images.zip"
+        url: "https://zenodo.org/api/records/21510492/files/Raw_images.zip/content"
+        size: 9412870675
+        md5: 4952c4315dea63b5dc80202ea7912d6a
+      - name: "Irrigated_olives_polygon.geojson"
+        url: "https://zenodo.org/api/records/21510492/files/Irrigated_olives_polygon.geojson/content"
+        size: 689
+        md5: 178f76dca402a4510b4d3552d4abbfff
+
+  olive_verticillium_uav:
+    title: "Verticilliose de l'olivier détectée par YOLO sur images drone (Grèce)"
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Mamalis M., Kalampokis E., Kalfas I., Tarabanis K. (2023). Deep Learning for Detecting Verticillium Fungus in Olive Trees: Using YOLO in UAV Imagery. Algorithms 16(7):343 ; données doi:10.5281/zenodo.8144164"
+    provider: zenodo
+    homepage: https://zenodo.org/records/8144164
+    notes: "Images RVB drone de trois oliveraies du nord de la Grèce (automne 2023), arbres atteints de verticilliose. Selon un agent de recherche, l'archive contient 407 images JPG sans fichier d'annotation : les étiquettes sont à refaire ou à demander aux auteurs."
+    files:
+      - name: "Deep Learning for Detecting Verticilium Fungus in Olive Trees Using YOLO in UAV Imagery.zip"
+        url: "https://zenodo.org/api/records/8144164/files/Deep%20Learning%20for%20Detecting%20Verticilium%20Fungus%20in%20Olive%20Trees%20Using%20YOLO%20in%20UAV%20Imagery.zip/content"
+        size: 4450605265
+        md5: 6acdd0261790bda07193d0b0679bb0f2
+
+  olive_tree_seg:
+    title: "OliveTreeSeg : segmentation d'oliviers sur images drone (Grèce 2024-2025)"
+    task: segmentation
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Seitanidis I.N., Tomaras A., Arvanitis N. (2025). OliveTreeSeg: A Diverse UAV-Based Dataset for Olive Tree Segmentation. Zenodo, doi:10.5281/zenodo.17490916"
+    provider: zenodo
+    homepage: https://zenodo.org/records/17490916
+    notes: "938 images RVB 4608×3456 (Parrot Sequoia) avec masques olivier / fond faits par un expert ; découpage 655 / 141 / 142."
+    files:
+      - name: "Agia_Sofia_merged_seg.zip"
+        url: "https://zenodo.org/api/records/17490916/files/Agia_Sofia_merged_seg.zip/content"
+        size: 3120399725
+        md5: e1882d0ecd7b6f04334bf53dd4649a3a
+
+  olive_tree_crowns_db:
+    title: "OliveTreeCrownsDb : houppiers d'oliviers sur images drone (Meknès, Maroc)"
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API publique Mendeley (data_licence = CC BY 4.0), consultée le 2026-10-12"
+    attribution: "Hnida Y., Mahraz M.A., Achebour A., Yahyaouy A., Riffi J., Tairi H. (2025). OliveTreeCrownsDb. Mendeley Data, doi:10.17632/xym8rd2srf ; Data in Brief 60:111515"
+    provider: mendeley
+    homepage: https://data.mendeley.com/datasets/xym8rd2srf
+    notes: "DJI Phantom 4 RTK à 74,7 m (1,78 cm/px), 4,22 ha : 46 images d'origine découpées en grilles 3×3, 6×6 et 9×9, boîtes YOLO et Pascal VOC, nuage de points, MNT. 8 070 fichiers, listés dans le manifeste."
+    files_manifest: manifests/olive_tree_crowns_db.csv
+  olive_tree_crowns_multi_crop:
+    title: "TreeCrownsDb multi-cultures : olivier, abricotier, vigne (Maroc)"
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API publique Mendeley (data_licence = CC BY 4.0), consultée le 2026-10-12"
+    attribution: "Hnida Y. et al. High-Resolution UAV Datasets for Agricultural Computer Vision. Mendeley Data, doi:10.17632/r4w3b2mfnw"
+    provider: mendeley
+    homepage: https://data.mendeley.com/datasets/r4w3b2mfnw
+    notes: "Même équipe qu'OliveTreeCrownsDb (recoupement probable) : images DJI et orthomosaïques de trois cultures, annotations .txt. 204 fichiers, listés dans le manifeste."
+    files_manifest: manifests/olive_tree_crowns_multi_crop.csv
+  olive_burned_uav:
+    title: "Oliviers brûlés et non brûlés vus par drone (Grèce)"
+    task: classification
+    status: noncommercial
+    license: CC-BY-NC-ND-4.0
+    license_evidence: "API publique Mendeley (data_licence = CC BY-NC-ND 4.0), consultée le 2026-10-12"
+    attribution: "Vasilakos C. et al. Aerial images (UAV) of burned and unburned olive trees. Mendeley Data, doi:10.17632/83kpndkrb2"
+    provider: mendeley
+    homepage: https://data.mendeley.com/datasets/83kpndkrb2
+    notes: "3 624 imagettes (Phantom 4 PRO RTK, Phantom 4 Multispectral RTK, Zenmuse L1) : brûlé partiellement, totalement, non brûlé. Pas de modification autorisée (ND) : les images ne doivent pas être redistribuées modifiées."
+    files:
+      - name: "Class_data.zip"
+        url: "https://data.mendeley.com/public-files/datasets/83kpndkrb2/files/0993a9da-26e9-46b0-9b32-cc899f6922db/file_downloaded"
+        size: 19585714
+        sha256: d199f7c40a28a95bf61192f5eadfb83d7257b2f267b93b01ad8b7afd658b7b6f
+
+  olive_olea_pred_morocco:
+    title: "OLEA-PRED : santé et rendement d'oliveraies par observation de la Terre (Maroc)"
+    task: regression
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Bouslihim Y., Bouasria A., Aicha R., Salem A., Lóczy D., Orban Z. (2024). Data and Script for: Olive Trees Health and Yield Prediction through EO data and Machine Learning (OLEA-PRED). Zenodo, doi:10.5281/zenodo.10920137"
+    provider: zenodo
+    homepage: https://zenodo.org/records/10920137
+    notes: "Images drone et satellite Mohammed VI (verger de Fkih Ben Saleh), positions des arbres, données de terrain (chlorophylle, rendement, sol) et scripts. Archives RAR : outil RAR requis. Le jeu compagnon 15742532 (Bouslihim et al. 2025) recoupe probablement celui-ci."
+    files:
+      - name: "Shapefiles.rar"
+        url: "https://zenodo.org/api/records/10920137/files/Shapefiles.rar/content"
+        size: 6908
+        md5: 8941de26ffdffd1a4f107d4523095353
+      - name: "SCRIPTs.rar"
+        url: "https://zenodo.org/api/records/10920137/files/SCRIPTs.rar/content"
+        size: 2116490318
+        md5: 776e8776e3054ed805e1b5fb45abde16
+      - name: "FBS images.rar"
+        url: "https://zenodo.org/api/records/10920137/files/FBS%20images.rar/content"
+        size: 865589243
+        md5: cf263e41acd152da9ebeedf6c7fea7fd
+      - name: "Field_DATA.rar"
+        url: "https://zenodo.org/api/records/10920137/files/Field_DATA.rar/content"
+        size: 24023
+        md5: 701d3ee58ebc51d9a701acdc2dc1eed2
+
+  olive_hyperspectral_halkidiki:
+    title: "Cubes hyperspectraux (Cubert S-185) et vérité terrain de stress d'oliviers (Chalcidique)"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Navrozidis I. (2023). Ground truth and raw hyperspectral files of olive trees for plant stress assessment. Zenodo, doi:10.5281/zenodo.10336545"
+    provider: zenodo
+    homepage: https://zenodo.org/records/10336545
+    notes: "8 cubes hyperspectraux du 13 mai 2021 et un tableau par arbre (138 bandes) avec trois stress : Verticillium dahliae, Pleospora herbarum, autres."
+    files:
+      - name: "session_000_000_cube.tiff"
+        url: "https://zenodo.org/api/records/10336545/files/session_000_000_cube.tiff/content"
+        size: 690992
+        md5: e48278d575d5d934af78a6758c04b4f8
+      - name: "session_000_007_cube.tiff"
+        url: "https://zenodo.org/api/records/10336545/files/session_000_007_cube.tiff/content"
+        size: 690992
+        md5: 0abd90e98f66b9fe9648554c90c44db6
+      - name: "session_000_004_cube.tiff"
+        url: "https://zenodo.org/api/records/10336545/files/session_000_004_cube.tiff/content"
+        size: 690992
+        md5: 00ee830010a4b3140eb70773422a129b
+      - name: "session_000_003_cube.tiff"
+        url: "https://zenodo.org/api/records/10336545/files/session_000_003_cube.tiff/content"
+        size: 690992
+        md5: 3f5402abec0c8b2c69e8ac641830542b
+      - name: "session_000_005_cube.tiff"
+        url: "https://zenodo.org/api/records/10336545/files/session_000_005_cube.tiff/content"
+        size: 690992
+        md5: e0cf451670c6fd6f6278d892ecd9de13
+      - name: "session_000_002_cube.tiff"
+        url: "https://zenodo.org/api/records/10336545/files/session_000_002_cube.tiff/content"
+        size: 690992
+        md5: 2e87eb506658bc3ef95c15c7c2cb03c2
+      - name: "session_000_006_cube.tiff"
+        url: "https://zenodo.org/api/records/10336545/files/session_000_006_cube.tiff/content"
+        size: 690992
+        md5: f64233f23cdb0e4f22fc91c9f5b5947c
+      - name: "merged_hs_olive_gr_tr.xlsx"
+        url: "https://zenodo.org/api/records/10336545/files/merged_hs_olive_gr_tr.xlsx/content"
+        size: 1967526
+        md5: 7c3b55a04e06ef829c3ed8f21904ac66
+      - name: "session_000_001_cube.tiff"
+        url: "https://zenodo.org/api/records/10336545/files/session_000_001_cube.tiff/content"
+        size: 690992
+        md5: 64f9e08f1584d8df4449056fb1a3892b
+
+  olive_oqds_insight:
+    title: "OQDS-Insight : dépérissement à Xylella vu par satellite WorldView-2 (Brindisi)"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API figshare (license = CC BY 4.0), consultée le 2026-10-12"
+    attribution: "Crecco L., Morelli D., Raparelli E., Di Giulio M., Bajocco S. (2025). OQDS-Insight. figshare, doi:10.6084/m9.figshare.28191245.v5"
+    provider: figshare
+    homepage: https://doi.org/10.6084/m9.figshare.28191245.v5
+    notes: "Scènes WorldView-2 RVB et NDVI (2019-2021) et points par arbre (environ 77 000 arbres, dont environ 2 200 infectés ou arrachés par photo-interprétation)."
+    files:
+      - name: "pts_OQDS.cpg"
+        url: "https://ndownloader.figshare.com/files/60162566"
+        size: 5
+        md5: ae3b3df9970b49b6523e608759bc957d
+      - name: "pts_OQDS.dbf"
+        url: "https://ndownloader.figshare.com/files/60162572"
+        size: 2452514
+        md5: a81d73fa3e459264fb5bd0d6dd5f4f2b
+      - name: "pts_OQDS.prj"
+        url: "https://ndownloader.figshare.com/files/60162569"
+        size: 401
+        md5: d4166c4468b2506bb2cb0fc7fd53c811
+      - name: "pts_OQDS.qix"
+        url: "https://ndownloader.figshare.com/files/60162584"
+        size: 5092488
+        md5: 72ccd0edd68cc21b7f4e1e5ca3876837
+      - name: "pts_OQDS.qmd"
+        url: "https://ndownloader.figshare.com/files/60162575"
+        size: 678
+        md5: 2488412314915e90847ce425ad630259
+      - name: "pts_OQDS.shp"
+        url: "https://ndownloader.figshare.com/files/60162578"
+        size: 2145936
+        md5: 73289a18cf62c597f7f5a46b98a28d8c
+      - name: "pts_OQDS.shx"
+        url: "https://ndownloader.figshare.com/files/60162581"
+        size: 613196
+        md5: fc4773b5089b5729b6de7dbfa0f6d63b
+      - name: "2019_WV2_NDVI.tif"
+        url: "https://ndownloader.figshare.com/files/60162605"
+        size: 562746246
+        md5: d35156ee384b01af7792579c25e0e99e
+      - name: "2019_WV2_RGB.tif"
+        url: "https://ndownloader.figshare.com/files/60162596"
+        size: 422074356
+        md5: 5f40d4262623211ec1d482d8dcd00e4d
+      - name: "2019_WV2_RGB.tif.aux.xml"
+        url: "https://ndownloader.figshare.com/files/60162587"
+        size: 1170
+        md5: b37a684edbe0372368ae1dad94750169
+      - name: "2020_WV2_NDVI.tif"
+        url: "https://ndownloader.figshare.com/files/60162608"
+        size: 562746246
+        md5: 24adbd172917085931c40dd48ff88aa9
+      - name: "2020_WV2_RGB.tif"
+        url: "https://ndownloader.figshare.com/files/60162599"
+        size: 422074356
+        md5: 99cc49e3c63871cfff8f8d312373aef6
+      - name: "2020_WV2_RGB.tif.aux.xml"
+        url: "https://ndownloader.figshare.com/files/60162590"
+        size: 1170
+        md5: f726e87f8b10a0db8dd0ad60236abcbf
+      - name: "2021_WV2_NDVI.tif"
+        url: "https://ndownloader.figshare.com/files/60162611"
+        size: 562746246
+        md5: ad79d8d2bcd508b37976fef8384249cb
+      - name: "2021_WV2_RGB.tif"
+        url: "https://ndownloader.figshare.com/files/60162602"
+        size: 422074356
+        md5: d4c876b70d290325746df75660424c92
+      - name: "2021_WV2_RGB.tif.aux.xml"
+        url: "https://ndownloader.figshare.com/files/60162593"
+        size: 1170
+        md5: 0963e1a7c6240648a97ef755d6a0303f
+
+  olive_xylella_locations_apulia:
+    title: "Arbres positifs à Xylella fastidiosa dans les Pouilles (2015-2022)"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API figshare (license = CC BY 4.0), consultée le 2026-10-12"
+    attribution: "Raparelli E., Bajocco S. (2023). Locations of Xylella fastidiosa infections in Apulia (Italy). figshare, doi:10.6084/m9.figshare.22220872.v2"
+    provider: figshare
+    homepage: https://doi.org/10.6084/m9.figshare.22220872.v2
+    notes: "15 362 arbres testés positifs (protocoles officiels UE et EFSA), un CSV par année : espèce et coordonnées. Vérité terrain géolocalisée, sans image."
+    files:
+      - name: "2015.csv"
+        url: "https://ndownloader.figshare.com/files/39495337"
+        size: 240556
+        md5: 0f144d2f18b7f40885275741a6283bbf
+      - name: "2016.csv"
+        url: "https://ndownloader.figshare.com/files/39495340"
+        size: 5229
+        md5: 155fcf52d8984b720f4a845415d951d4
+      - name: "2017.csv"
+        url: "https://ndownloader.figshare.com/files/39495343"
+        size: 208373
+        md5: 0088cd8c441cc6efcf593720995e6831
+      - name: "2018.csv"
+        url: "https://ndownloader.figshare.com/files/39495346"
+        size: 48852
+        md5: 235bcfac83030fc516997124367d80ba
+      - name: "2019.csv"
+        url: "https://ndownloader.figshare.com/files/39495349"
+        size: 64692
+        md5: 8bfce7916895a39c9a1bb7bb5a701b01
+      - name: "2020.csv"
+        url: "https://ndownloader.figshare.com/files/39495352"
+        size: 105632
+        md5: b1aec5b0289c7e485e27516cb421cc43
+      - name: "2021.csv"
+        url: "https://ndownloader.figshare.com/files/39798718"
+        size: 126748
+        md5: 9e992356e58f00609e4cef00d2a9b345
+      - name: "2022.csv"
+        url: "https://ndownloader.figshare.com/files/39798712"
+        size: 11723
+        md5: f71c020f5bfb4c34b4be2b282c6325e1
+
+  olive_xf_nplants_2018:
+    title: "Traits foliaires hyperspectraux et thermiques par arbre, Xylella (Zarco-Tejada et al., Nature Plants 2018)"
+    task: classification
+    status: retained
+    license: MIT
+    license_evidence: "Fichier LICENSE (MIT) du dépôt GitHub Quantalab/Xf-NPlants-2018, lu le 2026-10-12"
+    attribution: "Zarco-Tejada P.J. et al. (2018). Pre-visual Xylella fastidiosa infection revealed in spectral plant-trait alterations. Nature Plants 4:432-439 ; dépôt github.com/Quantalab/Xf-NPlants-2018"
+    provider: url
+    homepage: https://github.com/Quantalab/Xf-NPlants-2018
+    notes: "Tableaux par arbre (indices et traits issus d'images aéroportées hyperspectrales et thermiques, sévérité 0-4, qPCR), sans image ; base corrigée en 2020. Fichiers figés au commit 5aa0d81."
+    files:
+      - name: "README.md"
+        url: "https://raw.githubusercontent.com/Quantalab/Xf-NPlants-2018/5aa0d811c46b76d8ce5f3e0c814ad2e86dfe21ff/README.md"
+        size: 6700
+      - name: "LICENSE"
+        url: "https://raw.githubusercontent.com/Quantalab/Xf-NPlants-2018/5aa0d811c46b76d8ce5f3e0c814ad2e86dfe21ff/LICENSE"
+        size: 1122
+      - name: "data__1-Data_Global_model_Xf-updated.csv"
+        url: "https://raw.githubusercontent.com/Quantalab/Xf-NPlants-2018/5aa0d811c46b76d8ce5f3e0c814ad2e86dfe21ff/data/1-Data_Global_model_Xf-updated.csv"
+        size: 6859153
+      - name: "data__2-Data_Parcel_with_qPCR.csv"
+        url: "https://raw.githubusercontent.com/Quantalab/Xf-NPlants-2018/5aa0d811c46b76d8ce5f3e0c814ad2e86dfe21ff/data/2-Data_Parcel_with_qPCR.csv"
+        size: 65748
+      - name: "data__3-Data_Orchard_with_qPCR.csv"
+        url: "https://raw.githubusercontent.com/Quantalab/Xf-NPlants-2018/5aa0d811c46b76d8ce5f3e0c814ad2e86dfe21ff/data/3-Data_Orchard_with_qPCR.csv"
+        size: 96863
+
+  olive_xylella_ip:
+    title: "xylella-ip : variables hyperspectrales et thermiques de 238 oliviers testés pour Xylella"
+    task: classification
+    status: retained
+    license: GPL-3.0
+    license_evidence: "Fichier LICENSE (GNU GPL v3) du dépôt GitHub lopsandrea/xylella-ip, lu le 2026-10-12"
+    attribution: "lopsandrea, xylella-ip (dépôt GitHub lopsandrea/xylella-ip)"
+    provider: url
+    homepage: https://github.com/lopsandrea/xylella-ip
+    notes: "238 arbres (160 négatifs, 78 positifs) : 47 bandes hyperspectrales moyennes et thermique par arbre, sans image ; projet étudiant (Politecnico di Bari, non vérifié). Figé au commit c9576a6."
+    files:
+      - name: "README.md"
+        url: "https://raw.githubusercontent.com/lopsandrea/xylella-ip/c9576a69702ab7f8b5bc7b836994a20c9442b3f5/README.md"
+        size: 2921
+      - name: "LICENSE"
+        url: "https://raw.githubusercontent.com/lopsandrea/xylella-ip/c9576a69702ab7f8b5bc7b836994a20c9442b3f5/LICENSE"
+        size: 35149
+      - name: "originalFeatures.csv"
+        url: "https://raw.githubusercontent.com/lopsandrea/xylella-ip/c9576a69702ab7f8b5bc7b836994a20c9442b3f5/originalFeatures.csv"
+        size: 125811
+      - name: "originalTargets.csv"
+        url: "https://raw.githubusercontent.com/lopsandrea/xylella-ip/c9576a69702ab7f8b5bc7b836994a20c9442b3f5/originalTargets.csv"
+        size: 476
+      - name: "doc.kml"
+        url: "https://raw.githubusercontent.com/lopsandrea/xylella-ip/c9576a69702ab7f8b5bc7b836994a20c9442b3f5/doc.kml"
+        size: 204597
+
+  olive_leaf_dehydration_ms_hs:
+    title: "Feuilles d'avocatier, d'olivier et de vigne : images multispectrales et spectres pendant la déshydratation"
+    task: regression
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API figshare (license = CC BY 4.0), consultée le 2026-10-12"
+    attribution: "Estrada J.S. (2024). A multi-spectral and hyperspectral image dataset for evaluating the health status of avocado, olive and vineyard. figshare, doi:10.6084/m9.figshare.26950660.v2"
+    provider: figshare
+    homepage: https://doi.org/10.6084/m9.figshare.26950660.v2
+    notes: "Feuilles détachées en laboratoire : images MicaSense 5 bandes, spectres 350-2500 nm, humidité, chlorophylle, azote, 5 stades de déshydratation. Archive RAR."
+    files:
+      - name: "DATASET.rar"
+        url: "https://ndownloader.figshare.com/files/49034797"
+        size: 1183380060
+        md5: eef783b4e02f41c8cda1e90aba63940b
+
+  olive_fly_smartmcphail:
+    title: "SmartMcPhail (OliveFlyTrap) : mouches de l'olive mâles et femelles dans des pièges connectés"
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Ierardi C. (2026). SmartMcPhail Dataset. Zenodo, doi:10.5281/zenodo.18874302"
+    provider: zenodo
+    homepage: https://zenodo.org/records/18874302
+    notes: "210 images prises dans des pièges McPhail connectés, 1 348 insectes en boîtes COCO : Bactrocera oleae femelle, mâle, et pyrale (Glyphodes). Export Roboflow de l'autrice."
+    files:
+      - name: "FinalDataset.coco.zip"
+        url: "https://zenodo.org/api/records/18874302/files/FinalDataset.coco.zip/content"
+        size: 26347613
+        md5: 50550d4b42eb5bff44f54a45f3887892
+
+  olive_fly_zadar:
+    title: "Mouche de l'olive sur pièges (Zadar, Croatie) : tuiles annotées"
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Zdrilić A. (2026). Bactrocera oleae dataset. Zenodo, doi:10.5281/zenodo.21619417 ; Kos, Zdrilić et al., préprint doi:10.21203/rs.3.rs-7741828"
+    provider: zenodo
+    homepage: https://zenodo.org/records/21619417
+    notes: "Photos de pièges (2020) découpées en tuiles, boîtes Pascal VOC (B. oleae et autres insectes)."
+    files:
+      - name: "Images jpg.zip"
+        url: "https://zenodo.org/api/records/21619417/files/Images%20jpg.zip/content"
+        size: 899500473
+        md5: 7129e6e98780c66b9efd2ea993b3ec07
+      - name: "annotations.zip"
+        url: "https://zenodo.org/api/records/21619417/files/annotations.zip/content"
+        size: 1818120
+        md5: 690d8cc91c0e765bbedb4a1b321fcf21
+
+  olive_fly_dirt_coco:
+    title: "DIRT (Dacus Image Recognition Toolkit) : réannotation en polygones COCO"
+    task: segmentation
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Geissmann Q., Kalamatianos R., Karydis I., Doukakis D. et al. (2024). DIRT. Zenodo, doi:10.5281/zenodo.13992477 ; images de Kalamatianos et al., J. Imaging 4(11):129, 2018"
+    provider: zenodo
+    homepage: https://zenodo.org/records/13992477
+    notes: "291 images de pièges McPhail (insectes à la surface du liquide), polygones COCO ; dépôt cosigné par les auteurs du DIRT d'origine (Grèce, 2018)."
+    files:
+      - name: "DIRT.zip"
+        url: "https://zenodo.org/api/records/13992477/files/DIRT.zip/content"
+        size: 119742232
+        md5: 37dcdf5339c28016cb45ef235b85ea98
+
+  olive_fly_digital_mcphail:
+    title: "Piège McPhail numérique : comptages de mouches de l'olive (Leucade, Grèce)"
+    task: regression
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Vlachos I., Anagnostou M., Polymenakos N.M., Avlonitis M. (2026). Digital McPhail Trap - olive fruit fly counting validation image set. Zenodo, doi:10.5281/zenodo.21585594"
+    provider: zenodo
+    homepage: https://zenodo.org/records/21585594
+    notes: "125 images diurnes de pièges McPhail (saison 2022) avec comptages experts par image (pas de boîtes)."
+    files:
+      - name: "Zenodo_DMT_validation_dataset.zip"
+        url: "https://zenodo.org/api/records/21585594/files/Zenodo_DMT_validation_dataset.zip/content"
+        size: 417270389
+        md5: 19908b2cb0e93acafa10d15df341924c
+
+  olive_spittlebug_db:
+    title: "SPITTLEBUG_DB : mousses de larves de cercopes, vecteurs de Xylella (Pouilles)"
+    task: segmentation
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Elia M., Cardellicchio A., Paradiso M., Veronico G. et al. (2025). SPITTLEBUG_DB v1.0.0. Zenodo, doi:10.5281/zenodo.17485292 ; Data in Brief 2026, doi:10.1016/j.dib.2026.112477"
+    provider: zenodo
+    homepage: https://zenodo.org/records/17485292
+    notes: "365 images (211 annotées en masques et YOLO) de mousses de Philaenus et apparentés sur la végétation au sol, pas sur les oliviers ; Valenzano, avril 2024 et 2025."
+    files:
+      - name: "ispstiima__SPITTLEBUG_DB-v1.0.0.zip"
+        url: "https://zenodo.org/api/records/17485292/files/ispstiima%2FSPITTLEBUG_DB-v1.0.0.zip/content"
+        size: 941235508
+        md5: bd516e2dce39441b2febf6e0719b6372
+
+  olive_prays_oleae_yolo:
+    title: "Teigne de l'olivier (Prays oleae) : export YOLO d'une classe (GitHub)"
+    task: detection
+    status: noncommercial
+    license: LicenseRef-aucune-licence
+    license_evidence: "Dépôt GitHub Racem-Moalla/prays_oleae_data sans fichier de licence, vu le 2026-10-12"
+    attribution: "Racem-Moalla, prays_oleae_data (dépôt GitHub Racem-Moalla/prays_oleae_data)"
+    provider: git
+    homepage: https://github.com/Racem-Moalla/prays_oleae_data
+    notes: "Export Roboflow : environ 1 035 images d'entraînement et 181 de validation avec variantes augmentées, une classe prays_oleae ; photos WhatsApp de juillet 2022, contexte non documenté. Aucune licence : usage académique seulement. Dépôt figé au commit 1f70eb6."
+    files:
+      - name: "prays_oleae_data"
+        url: "https://github.com/Racem-Moalla/prays_oleae_data.git"
+        commit: 1f70eb607577040dcb5629c945a718f97d51d2e3
+
+  olive_leaf_uguz_uysal:
+    title: "Feuilles d'olivier (Denizli, Turquie) : sain, œil de paon, Aculus olearius"
+    task: classification
+    status: noncommercial
+    license: LicenseRef-aucune-licence
+    license_evidence: "Dépôt GitHub sinanuguz/CNN_olive_dataset sans fichier de licence, vu le 2026-10-12"
+    attribution: "Uğuz S., Uysal N. (2021). Classification of olive leaf diseases using deep convolutional neural networks. Neural Computing and Applications 33:4133-4149 ; dépôt github.com/sinanuguz/CNN_olive_dataset"
+    provider: url
+    homepage: https://github.com/sinanuguz/CNN_olive_dataset
+    notes: "3 400 photos de feuilles (printemps et été) : saines, œil de paon, acariose (Aculus olearius). Jeu d'origine de nombreuses copies Kaggle et Roboflow (sous d'autres licences). Archives RAR figées au commit 9cfb701. Aucune licence : usage académique seulement."
+    files:
+      - name: "README.md"
+        url: "https://raw.githubusercontent.com/sinanuguz/CNN_olive_dataset/9cfb701f9ea23ef5338ff077827ea773c2ce3d5b/README.md"
+        size: 323
+      - name: "Train1.rar"
+        url: "https://raw.githubusercontent.com/sinanuguz/CNN_olive_dataset/9cfb701f9ea23ef5338ff077827ea773c2ce3d5b/Train1.rar"
+        size: 24696501
+      - name: "Train2.rar"
+        url: "https://raw.githubusercontent.com/sinanuguz/CNN_olive_dataset/9cfb701f9ea23ef5338ff077827ea773c2ce3d5b/Train2.rar"
+        size: 21730642
+      - name: "train3.rar"
+        url: "https://raw.githubusercontent.com/sinanuguz/CNN_olive_dataset/9cfb701f9ea23ef5338ff077827ea773c2ce3d5b/train3.rar"
+        size: 11666493
+      - name: "train4.rar"
+        url: "https://raw.githubusercontent.com/sinanuguz/CNN_olive_dataset/9cfb701f9ea23ef5338ff077827ea773c2ce3d5b/train4.rar"
+        size: 22308188
+      - name: "test.rar"
+        url: "https://raw.githubusercontent.com/sinanuguz/CNN_olive_dataset/9cfb701f9ea23ef5338ff077827ea773c2ce3d5b/test.rar"
+        size: 19531285
+
+  olive_leaf_peacock_diker:
+    title: "Œil de paon de l'olivier : feuilles saines et malades (Diker et al. 2023, Kaggle)"
+    task: classification
+    status: noncommercial
+    license: LicenseRef-Unknown
+    license_evidence: "API Kaggle (licenseName = « Unknown »), consultée le 2026-10-12"
+    attribution: "Diker A., Elen A., Közkurt C. et al. (2023). An effective feature extraction method for olive peacock eye leaf disease classification. Eur Food Res Technol, doi:10.1007/s00217-023-04386-8"
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/serhathoca/zeytin
+    notes: "Déposé par un coauteur (S. Kılıçarslan). 954 images : 572 saines, 382 malades, issues de 477 prises de vue coupées en deux (mai 2023, Turquie)."
+    files:
+      - name: "zeytin.zip"
+        url: "https://www.kaggle.com/api/v1/datasets/download/serhathoca/zeytin?datasetVersionNumber=1"
+        size: null
+
+  olive_leaf_peacock_peru:
+    title: "Œil de paon sur feuilles d'olivier (Ilo, Pérou, Kaggle)"
+    task: classification
+    status: noncommercial
+    license: CC-BY-NC-SA-4.0
+    license_evidence: "API Kaggle (licenseName = « CC BY-NC-SA 4.0 »), consultée le 2026-10-12"
+    attribution: "Mamani Machaca W.A. (2024). Peacock Spot Detection in Olive Leaves. Kaggle"
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/antony171060/peacock-spot-detection-in-olive-leaves
+    notes: "1 360 photos au smartphone sur fond blanc (680 saines, 680 œil de paon), vallée d'Algarrobal ; aucun article associé."
+    files:
+      - name: "peacock-spot-detection-in-olive-leaves.zip"
+        url: "https://www.kaggle.com/api/v1/datasets/download/antony171060/peacock-spot-detection-in-olive-leaves?datasetVersionNumber=1"
+        size: null
+
+  olive_leaf_tacna:
+    title: "Feuilles d'olivier de Tacna (Pérou) : fumagine, virose, carences (224×224)"
+    task: classification
+    status: noncommercial
+    license: LicenseRef-aucune-licence
+    license_evidence: "Dépôt GitHub ichaparroc/OliveLeafDiseaseDatasetTacna sans fichier de licence, vu le 2026-10-12"
+    attribution: "Osco-Mamani E.F., Chaparro-Cruz I.N. (2023). Highly Accurate Deep Learning Model for Olive Leaf Disease Classification: A Study in Tacna-Perú. IJACSA 14(4), doi:10.14569/IJACSA.2023.0140494"
+    provider: url
+    homepage: https://github.com/ichaparroc/OliveLeafDiseaseDatasetTacna
+    notes: "Images réduites à 224×224 (pleine résolution sur demande aux auteurs). Figé au commit a50e3ee. Aucune licence : usage académique seulement."
+    files:
+      - name: "README.md"
+        url: "https://raw.githubusercontent.com/ichaparroc/OliveLeafDiseaseDatasetTacna/a50e3ee9c4f21980d244f25647c28f45710c1aba/README.md"
+        size: 1433
+      - name: "224x224.zip"
+        url: "https://raw.githubusercontent.com/ichaparroc/OliveLeafDiseaseDatasetTacna/a50e3ee9c4f21980d244f25647c28f45710c1aba/224x224.zip"
+        size: 2890450
+
+  olive_leaf_sparkworks:
+    title: "SparkWorks : feuilles, rameaux et arbres d'olivier (dont vues drone DJI Mini)"
+    task: classification
+    status: noncommercial
+    license: LicenseRef-aucune-licence
+    license_evidence: "Dépôt GitHub SparkWorksnet/olive-leaf-dataset sans fichier de licence, vu le 2026-10-12"
+    attribution: "SparkWorks, olive-leaf-dataset (projet IoT-NGIN, dépôt GitHub SparkWorksnet/olive-leaf-dataset)"
+    provider: git
+    homepage: https://github.com/SparkWorksnet/olive-leaf-dataset
+    notes: "2 566 feuilles et 52 rameaux sur fond neutre, 172 vues d'arbres par drone DJI Mini ; pas d'étiquette sanitaire documentée. Dépôt figé au commit ec22336. Aucune licence : usage académique seulement."
+    files:
+      - name: "olive-leaf-dataset"
+        url: "https://github.com/SparkWorksnet/olive-leaf-dataset.git"
+        commit: ec22336830088fca2fe65b3dfbc4252386c4be2d
+
+  olive_drought_varieties:
+    title: "Jeunes oliviers sous stress hydrique : photos de côté et de dessus (Fès, Maroc 2024)"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API publique Mendeley (data_licence = CC BY 4.0), consultée le 2026-10-12"
+    attribution: "Majikumna et al. (2025). Olive Tree Varieties Responses to Different level of Drought Stress. Mendeley Data, doi:10.17632/22j26tpk63"
+    provider: mendeley
+    homepage: https://data.mendeley.com/datasets/22j26tpk63
+    notes: "80 jeunes arbres (Haouzia, Menara, Languedoc), 4 régimes d'irrigation (100, 50, 25, 0 % de l'ETc), 1 440 photos de côté et 1 440 de dessus, mesures hebdomadaires (Growth.xlsx). Prises au sol, pas par drone."
+    files:
+      - name: "Growth.xlsx"
+        url: "https://data.mendeley.com/public-files/datasets/22j26tpk63/files/92563d1a-9a23-4ba3-b39b-ab87ae74915a/file_downloaded"
+        size: 178910
+        sha256: 6a70f738447457f1d382f2f8d72f12c0b0e69ef0b6879fe71bb8fbcffdf4efbb
+      - name: "Side View.zip"
+        url: "https://data.mendeley.com/public-files/datasets/22j26tpk63/files/f9b95aa0-100b-4380-8518-ff335d920863/file_downloaded"
+        size: 4684863897
+        sha256: e0756f8eee8cdb918bd5bfd72f3701645fec7b71f9d8de41f70c3ef4f6bd5bd2
+      - name: "Top View.zip"
+        url: "https://data.mendeley.com/public-files/datasets/22j26tpk63/files/86a2ec17-0f0e-4fbf-8739-7d940e010237/file_downloaded"
+        size: 4578345233
+        sha256: a8e10b30a6581192288d4b0cb22944336e54e9e4f956de512cf233e48f099362
+
+  olive_fruit_split_v2:
+    title: "Olives sur l'arbre, images drone rapprochées (Split v2, Croatie 2025)"
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Papić V., Sikora T., Musić J., Bonković M. et al. (2026). Split olive image dataset v2. Zenodo, doi:10.5281/zenodo.21976264"
+    provider: zenodo
+    homepage: https://zenodo.org/records/21976264
+    notes: "315 images DJI Mavic 3M rapprochées, 86 790 boîtes YOLO d'olives (cultivars Oblica, Leccino...), mai à novembre 2025, oliveraie de Tinj."
+    files:
+      - name: "Split_olive_image_dataset_v2.zip"
+        url: "https://zenodo.org/api/records/21976264/files/Split_olive_image_dataset_v2.zip/content"
+        size: 2947525513
+        md5: 83c014c5534bd2bf4877ccda0e9b3488
+
+  olive_fruit_split_tiles:
+    title: "Olives sur l'arbre, tuiles 640×640 (Split_Olive_DATASET v2)"
+    task: detection
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (metadata.license = cc-by-4.0), consultée le 2026-10-12"
+    attribution: "Papić V. (2025). Split_Olive_DATASET. Zenodo, doi:10.5281/zenodo.15746002"
+    provider: zenodo
+    homepage: https://zenodo.org/records/15746002
+    notes: "1 231 tuiles (861 / 246 / 124) d'olives à différents stades de maturité ; recoupement possible avec Split v2."
+    files:
+      - name: "Split_OLIVE_DATASETv2.zip"
+        url: "https://zenodo.org/api/records/15746002/files/Split_OLIVE_DATASETv2.zip/content"
+        size: 229835222
+        md5: 9bc5b3ab1d028bcffcf37f7759f0387c
+
+  olive_fruit_jaen_uav:
+    title: "Olives détectées sur images de drone (Jaén, Espagne, Kaggle)"
+    task: detection
+    status: noncommercial
+    license: CC-BY-NC-SA-4.0
+    license_evidence: "API Kaggle (licenseName = « CC BY-NC-SA 4.0 »), consultée le 2026-10-12"
+    attribution: "Valyano D. (2024). Olive fruit object detection. Kaggle"
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/danielvalyano/olive-fruit-object-detection
+    notes: "Boîtes YOLOv8 ; les 3 411 images (brutes et augmentées) dérivent de seulement 27 photos source : à découper par photo source."
+    files:
+      - name: "olive-fruit-object-detection.zip"
+        url: "https://www.kaggle.com/api/v1/datasets/download/danielvalyano/olive-fruit-object-detection?datasetVersionNumber=1"
+        size: null
+
+  olive_fruit_hyperspectral_seville:
+    title: "Olives Manzanilla et Gordal : imagerie hyperspectrale au champ (Séville)"
+    task: classification
+    status: retained
+    license: CC-BY-4.0
+    license_evidence: "API publique Mendeley (data_licence = CC BY 4.0), consultée le 2026-10-12"
+    attribution: "Domínguez-Cid S. et al. (2022). In-field hyperspectral imaging dataset of Manzanilla and Gordal olive varieties. Mendeley Data, doi:10.17632/8xvhcsdvst"
+    provider: mendeley
+    homepage: https://data.mendeley.com/datasets/8xvhcsdvst
+    notes: "Caméra SPECIM IQ (204 bandes), olives sur l'arbre, masques des pixels d'olive, mai à septembre ; démonstration (385 Mo) et jeu complet (10 Go)."
+    files:
+      - name: "demo_Olive_Dataset.zip"
+        url: "https://data.mendeley.com/public-files/datasets/8xvhcsdvst/files/fc55ea63-e4f0-4fa0-8d75-eb0ebd761b3f/file_downloaded"
+        size: 385386650
+        sha256: d540dbcaaed7ec5a257daeaa5fb31813252a50e270ab97d759c9e91eca7c4483
+      - name: "Olive_Dataset.zip"
+        url: "https://data.mendeley.com/public-files/datasets/8xvhcsdvst/files/5ace4990-52fa-477e-8d90-82fba49d2fe7/file_downloaded"
+        size: 10074091752
+        sha256: 6d038b0c288e9191a3fe2e30f123fe5a0c04bec18059521d6bd211ee4983b864
+
+  olive_fly_yellow_sticky_ipb:
+    title: "Pièges jaunes englués : mouches de l'olive annotées (Trás-os-Montes, Portugal)"
+    task: detection
+    status: manual
+    license: CC0-1.0
+    license_evidence: "API Dataverse dados.ipb.pt (license = CC0 1.0), consultée le 2026-10-12"
+    attribution: "Pereira J.A. (2026). Yellow sticky traps. Dados IPB, doi:10.34620/dadosipb/NNOPUT"
+    provider: url
+    homepage: https://doi.org/10.34620/dadosipb/NNOPUT
+    notes: "Archive de 1,42 Go (md5 53e18c347406bd54d606ab4c3b303fb4). Le 12/10/2026, le serveur de l'IPB répondait « Failed to locate and/or open physical file » (HTTP 404) : réessayer depuis la page du DOI, ou écrire à l'IPB."
+    files: []
+  olive_tephritid26_boleae:
+    title: "Tephritid26 : 26 espèces de téphritides dont Bactrocera oleae (spécimens en studio)"
+    task: classification
+    status: manual
+    license: CC0-1.0
+    license_evidence: "API Dryad (license = CC0-1.0), consultée le 2026-10-12"
+    attribution: "Li Z. et al. (2026). Tephritid26. Scientific Data, doi:10.1038/s41597-026-07713-2 ; données doi:10.5061/dryad.gf1vhhn36"
+    provider: url
+    homepage: https://doi.org/10.5061/dryad.gf1vhhn36
+    notes: "Dryad refuse les téléchargements automatisés (HTTP 401/403) : télécharger dans le navigateur 1022Bactrocera_oleae.zip (2,62 Go), 1022Bactrocera_oleae_Crop.zip (0,28 Go), les étiquettes et Tephritid26_SplitData.csv. B. oleae : 766 images de 25 spécimens. Jeu complet : 119 Go."
+    files: []
+  olive_on_field_disease_bocca:
+    title: "Maladies de l'olivier au champ, systèmes de vision (projet figshare)"
+    task: classification
+    status: manual
+    license: CC-BY-4.0
+    license_evidence: "Articles figshare (CC BY 4.0), consultés par un agent de recherche le 2026-10-12"
+    attribution: "Projet figshare « On field disease detection in olive tree with vision systems »"
+    provider: url
+    homepage: https://figshare.com/projects/On_field_disease_detection_in_olive_tree_with_vision_systems/90577
+    notes: "Les fichiers sont des liens vers mega.nz : téléchargement à la main ; classes non listées."
+    files: []
+  olive_deep_farm:
+    title: "DEEP FARM : cas d'usage olivier (Zenodo, accès restreint)"
+    task: segmentation
+    status: manual
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (cc-by-4.0, accès restreint), consultée le 2026-10-12"
+    attribution: "DEEP FARM Consortium (2025). DEEP FARM : OLIVE use case Dataset. Zenodo, doi:10.5281/zenodo.17990380"
+    provider: url
+    homepage: https://zenodo.org/records/17990380
+    notes: "Accès sur demande via Zenodo (« for research »)."
+    files: []
+  olive_hedgerow_multispectral:
+    title: "Phénotypage multispectral par drone d'oliveraies en haie (Zenodo, accès restreint)"
+    task: regression
+    status: manual
+    license: CC-BY-4.0
+    license_evidence: "API Zenodo (cc-by-4.0, accès restreint), consultée le 2026-10-12"
+    attribution: "Dataset for Multispectral UAV phenotyping of hedgerow olive orchards. Zenodo, doi:10.5281/zenodo.15743699"
+    provider: url
+    homepage: https://zenodo.org/records/15743699
+    notes: "Accès sur demande via Zenodo."
+    files: []
+  olive_roboflow_pests_tunisia:
+    title: "Roboflow ezer-rbfrp/pfa-bs1hi : 13 ravageurs et maladies de l'olivier (Tunisie)"
+    task: detection
+    status: manual
+    license: LicenseRef-CC-BY-4.0-declaree
+    license_evidence: "Fichier data.yaml d'un export et page Roboflow, lus par un agent de recherche le 2026-10-12"
+    attribution: "Roboflow Universe, projet ezer-rbfrp/pfa-bs1hi"
+    provider: url
+    homepage: https://universe.roboflow.com/ezer-rbfrp/pfa-bs1hi
+    notes: "Compte ou clé API Roboflow nécessaire. Provenance des images à vérifier."
+    files: []
+  olive_cottony_mass_euphyllura:
+    title: "Masses cotonneuses du psylle de l'olivier (Euphyllura olivina), segmentation"
+    task: segmentation
+    status: manual
+    license: LicenseRef-non-verifiee
+    license_evidence: "Dépôt GitHub sistemas-concurrentes/cottony_mass_cod, lu le 2026-10-12"
+    attribution: "Velesaca H.O., Ruano F., Gomez-Cantos A., Holgado-Terriza J.A. (2025). Agriculture 15(23):2485, doi:10.3390/agriculture15232485"
+    provider: url
+    homepage: https://app.roboflow.com/test-bx6i4/cottony-mass-euphyllura-olivina-5ue4p/
+    notes: "Jeu publié sur Roboflow (compte nécessaire) ; licence non vérifiée."
+    files: []
+  olive_kaggle_habibulbasher:
+    title: "Olive Leaf Image Dataset (Kaggle, habibulbasher01644)"
+    task: classification
+    status: excluded
+    license: LicenseRef-reupload
+    license_evidence: "API Kaggle : CC0 déclaré par le réimporteur, consultée le 2026-10-12"
+    attribution: "—"
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/habibulbasher01644/olive-leaf-image-dataset
+    notes: "Ré-upload du jeu d'Uğuz et Uysal (olive_leaf_uguz_uysal) sous une autre licence : télécharger l'original."
+    files: []
+  olive_kaggle_erikdervishi:
+    title: "olive_dataset (Kaggle, erikdervishi)"
+    task: detection
+    status: excluded
+    license: LicenseRef-Unknown
+    license_evidence: "API Kaggle (licenseName = « Unknown »), consultée le 2026-10-12"
+    attribution: "—"
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/erikdervishi/olive-dataset
+    notes: "Images DJI datées du 25 mai 2024, comme les vols ICAERUS : probable dérivé des données ICAERUS, auteur non identifiable. Utiliser les originaux ICAERUS."
+    files: []
+  olive_kaggle_compilations:
+    title: "Compilations Kaggle de feuilles d'olivier (abeersaleh987654321, kamarchakroun, qingchen987)"
+    task: classification
+    status: excluded
+    license: LicenseRef-compilation
+    license_evidence: "API Kaggle, consultée le 2026-10-12"
+    attribution: "—"
+    provider: kaggle
+    homepage: https://www.kaggle.com/datasets/abeersaleh987654321/olive-leaf-disease-clean-unified-dataset
+    notes: "Agrégats d'autres jeux (dont Uğuz et Uysal et des exports Roboflow) sans provenance par image."
+    files: []

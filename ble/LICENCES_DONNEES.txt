@@ -1,0 +1,260 @@
+LICENCES DES DONNÉES : PROJET BLÉ
+=================================
+
+Usage : projet académique, non commercial (confirmé le 12 octobre 2026).
+Toutes les sources téléchargeables du projet sont récupérées par défaut :
+    uv run agridrone data download --project ble
+
+Fichier généré depuis ble/configs/data/sources.yaml par la commande
+`uv run agridrone data licences --project ble`
+(ne pas le modifier à la main).
+
+Statuts
+-------
+  libre           licence permissive (CC BY, CC0, MIT...) : réutilisation possible, même commerciale
+  à confirmer     licence permissive déclarée par le déposant, provenance à confirmer
+  non commercial  licence non commerciale ou inconnue : usage académique non commercial seulement
+  manuel          à télécharger à la main (formulaire, compte, accord ou dépôt qui refuse les robots)
+  écarté          non téléchargé (re-publication ou compilation d'autres jeux)
+
+Si le projet devenait commercial : ne garder que les sources « libre » (et « à
+confirmer » une fois la provenance établie), puis réentraîner les modèles sans les
+autres. Les licences CC BY imposent de citer les auteurs (ligne « Citer »).
+
+
+Sources
+=======
+
+jic_wheat_disease_999 : Wheat disease images (small dataset), John Innes Centre
+  Statut      : libre
+  Licence     : CC-BY-4.0 (DataCite + API Zenodo, consultés le 2026-10-07)
+  Citer       : Long M., Hartley M., Morris R.J., Brown J.K.M. (2023). Classification of
+                wheat diseases using deep learning networks with field and glasshouse
+                images. Plant Pathology. doi:10.1111/ppa.13684 ; données
+                doi:10.5281/zenodo.7573133
+  Lien        : https://zenodo.org/records/7573133
+  Taille      : 1,03 Go, 1 fichier(s)
+
+ethiopia_wheat_leaf : Wheat Leaf Dataset (Holeta, Éthiopie)
+  Statut      : libre
+  Licence     : CC-BY-4.0 (DataCite + API publique Mendeley, consultées le 2026-10-07)
+  Citer       : Getachew H. (2021). Wheat Leaf Dataset. Mendeley Data, V1.
+                doi:10.17632/wgd66f8n6h.1
+  Lien        : https://data.mendeley.com/datasets/wgd66f8n6h/1
+  Taille      : 1,51 Go, 1 fichier(s)
+
+kaggle_yellowrust_2223 : YellowRust_22-23 (Kaggle, shantkumar)
+  Statut      : à confirmer
+  Licence     : CDLA-Permissive-1.0 (API Kaggle (licence déclarée par le déposant),
+                consultée le 2026-10-07)
+  Citer       : Shant Kumar (2025). YellowRust_22-23. Kaggle, version 1.
+  Lien        : https://www.kaggle.com/datasets/shantkumar/yellowrust-2223-dataset
+  Taille      : 0,29 Go, 1 fichier(s)
+  Remarque    : Pas de description de l'auteur. EXIF cohérents avec une collecte originale :
+                10 000 images 256×256, 2 smartphones (realme narzo 50A, Huawei COR-AL00), 26
+                jours de prise de vue (janv.–mars 2022 et 2023). Utilisé seulement comme
+                test inter-sources tant que la provenance n'est pas confirmée par l'auteur.
+
+henan_wheat_disease : Wheat Dataset (Henan, Chine) : 7 classes de maladies du blé au champ
+  Statut      : libre
+  Licence     : CC-BY-4.0 (API Zenodo (metadata.license = cc-by-4.0), consultée le
+                2026-10-08)
+  Citer       : Ma C., Zhang H., Ma X., Wang J., Zhang Y., Zhang X. (2024). Method for the
+                lightweight detection of wheat disease using improved YOLOv8. Trans. Chin.
+                Soc. Agric. Eng. 40:187-195 ; données : Ma C., Wheat Dataset,
+                doi:10.5281/zenodo.15621359
+  Lien        : https://zenodo.org/records/15621359
+  Taille      : 1,11 Go, 1 fichier(s)
+  Remarque    : Déposé par le premier auteur de l'article. Jeu de détection (boîtes YOLO) ;
+                la classe de chaque image est donnée par le préfixe du nom de fichier
+                (LeafRust, StripeRust, Powdery, Scab, Glume, WheatEar, WheatLeaf). Passé de
+                « candidate » à « retained » le 2026-10-08 : dépôt de l'auteur cité, photos
+                de terrain cohérentes entre classes (même champ, même sol, mains des
+                opérateurs), aucun doublon avec les cinq autres jeux. Réserve : EXIF absents
+                (supprimés au traitement), tailles d'image variées pour l'oïdium. Utilisé à
+                l'entraînement du modèle binaire.
+
+tekirdag_powdery_mildew : Wheat Powdery Mildew Image Dataset (Tekirdağ, Turquie)
+  Statut      : libre
+  Licence     : CC-BY-4.0 (API Zenodo (metadata.license = cc-by-4.0), consultée le
+                2026-10-08)
+  Citer       : Önler E., Köycü N.D. (2024). Wheat Powdery Mildew Image Dataset. Tekirdağ
+                Namık Kemal University. Zenodo, doi:10.5281/zenodo.13137587
+  Lien        : https://zenodo.org/records/13137587
+  Taille      : 1,31 Go, 2 fichier(s)
+  Remarque    : Feuilles photographiées au smartphone, centrées sur les zones malades ;
+                boîtes YOLO d'une seule classe (oïdium). Toutes les images sont donc «
+                oïdium ». Test seulement.
+
+bangladesh_wheat_disease : Disease Dataset of Wheat: Original, Augmented, and Balanced (Bangladesh)
+  Statut      : libre
+  Licence     : CC-BY-4.0 (API publique Mendeley (data_licence = CC BY 4.0), consultée le
+                2026-10-08)
+  Citer       : Radowan M.I.R., Ayon R. (Daffodil International University). Disease Dataset
+                of Wheat: Original, Augmented, and Balanced for Deep Learning. Mendeley
+                Data, V1. doi:10.17632/5gc7hwydwg.1
+  Lien        : https://data.mendeley.com/datasets/5gc7hwydwg/1
+  Taille      : 3,82 Go, 1 fichier(s)
+  Remarque    : Photos de feuilles au champ (Bangladesh), 1920×1080 : point noir, piétin
+                fusarien, feuille saine, helminthosporiose, pyriculariose (1 603
+                originales). Seules les images originales sont extraites : les images
+                augmentées ne servent jamais de test. Maladies absentes de nos autres jeux :
+                test des maladies jamais vues.
+
+kaggle_wheat_leaf_dl : Wheat Leaf Disease Dataset for DL Classification (Kaggle, yilikalfikru)
+  Statut      : écarté
+  Licence     : LicenseRef-compilation-unverified (CC BY 4.0 déclaré sur Kaggle, mais
+                contenu inspecté le 2026-10-07 : compilation d'autres jeux (images
+                d'Éthiopie, de Yellow-Rust-19 dont la licence est « Unknown », noms au
+                format John Innes) et d'images web (.jfif, .webp, vignettes 275×183, photos
+                Nikon de 2006))
+  Citer       : Yilikal Fikru (2026). Wheat Leaf Disease Dataset for DL Classification.
+                Kaggle, version 2.
+  Lien        : https://www.kaggle.com/datasets/yilikalfikru/wheat-leaf-disease-dataset-for-dl-classification
+  Remarque    : Exclu : la licence déclarée ne peut pas couvrir des images reprises d'autres
+                sources.
+
+weedsgalore : WeedsGalore, maïs / adventices, DJI P4 Multispectral (GFZ Potsdam)
+  Statut      : libre
+  Licence     : CC-BY-4.0 (README du portail GFZ et du dépôt GitHub, lus le 2026-10-07)
+  Citer       : Celikkan E., Kunzmann T., Yeskaliyev Y., Itzerott S., Klein N., Herold M.
+                (2025). WeedsGalore: A Multispectral and Multitemporal UAV-based Dataset for
+                Crop and Weed Segmentation in Agricultural Maize Fields. WACV 2025.
+                arXiv:2502.13103
+  Lien        : https://doidata.gfz.de/weedsgalore_e_celikkan_2024/
+  Taille      : 0,34 Go, 1 fichier(s)
+
+maize_stress_rust_tr : UAV multispectral maize, water stress & common rust 2025 (Turquie)
+  Statut      : libre
+  Licence     : CC-BY-4.0 (DataCite + API Zenodo, consultés le 2026-10-07)
+  Citer       : Suiçmez Ç., Yilmaz C., Kahraman H.T. (2026). A Multi-Head UNet++ Framework
+                with Fractional Differential Output Refinement for UAV Multispectral Crop
+                Stress Mapping. Sensors 26(10):3228 ; données doi:10.5281/zenodo.22062459
+                (v2.1)
+  Lien        : https://zenodo.org/records/22062459
+  Taille      : 1,39 Go, 4 fichier(s)
+  Remarque    : Masques = pseudo-étiquettes dérivées d'indices de végétation : à n'utiliser
+                que pour tester la lecture et le tuilage, jamais pour comparer U-Net et
+                indices.
+
+inrae_cereals_field_leaves : Cereals.Multi_Cla_Field_LeafFragments (INRAE, Bretagne 2024) : archive du blé
+  Statut      : non commercial
+  Licence     : CC-BY-NC (API Dataverse de recherche.data.gouv.fr (termsOfUse = « CC-BY-NC
+                », version non précisée), consultée le 2026-10-12)
+  Citer       : Bousset-Vaslin L. (INRAE) (2025). Cereals.Multi_Cla_Field_LeafFragments.
+                Recherche Data Gouv, V1. doi:10.57745/VYR8ZF
+  Lien        : https://doi.org/10.57745/VYR8ZF
+  Taille      : 3,63 Go, 3 fichier(s)
+  Remarque    : Fragments de feuilles photographiés au smartphone, au champ (Ille-et-Vilaine
+                et Morbihan, février à juillet 2024). Blé : 1 252 images ; rouille jaune
+                142, septoriose 133, rouille brune 90, oïdium 65, rouille noire 43, jaunisse
+                nanisante 23, sans symptôme 16, plusieurs causes 208, non annotées 532
+                (fichier de contenu, colonnes Tag et EPPOHost). Le jeu le plus proche du
+                contexte français. Seule l'archive du blé est téléchargée ; orge, avoine et
+                triticale (5,8 Go) sont dans le même dépôt.
+
+yellow_rust_19 : Yellow-Rust-19 : sévérité de la rouille jaune (Kaggle, Hayit et al.)
+  Statut      : non commercial
+  Licence     : LicenseRef-Unknown (API Kaggle (licenseName = « Unknown »), consultée le
+                2026-10-12)
+  Citer       : Hayit T., Erbay H., Varçın F., Hayit F., Akci N. (2021). Determination of
+                the severity level of yellow rust disease in wheat by using convolutional
+                neural networks. Journal of Plant Pathology 103(3):923-934
+  Lien        : https://www.kaggle.com/datasets/tolgahayit/yellowrust19-yellow-rust-disease-in-wheat
+  Taille      : 0,00 Go (+ fichiers de taille inconnue avant le premier téléchargement), 1
+                fichier(s)
+  Remarque    : Déposé par le premier auteur de l'article (Turquie). Classes de sévérité de
+                la rouille jaune (6 niveaux). 1,55 Go déclarés par Kaggle (taille de
+                l'archive enregistrée au premier téléchargement).
+
+agriculture_vision_2021 : Agriculture-Vision 2021 (IntelinAir) : anomalies de parcelles, RVB + PIR aérien
+  Statut      : non commercial
+  Licence     : LicenseRef-AgricultureVision-Terms (« Agriculture-Vision Dataset Terms of
+                Use » (PDF du bucket S3, md5 67c80709…), lu le 2026-10-12 : licence limitée
+                à des applications de recherche non commerciales, redistribution interdite)
+  Conditions  : https://intelinair-data-releases.s3.amazonaws.com/agriculture-vision/cvpr_challenge_2021/Agriculture-Vision%20Dataset%20Terms%20of%20Use.pdf
+  Citer       : Chiu M.T. et al. (2020). Agriculture-Vision: A Large Aerial Image Database
+                for Agricultural Pattern Analysis. CVPR 2020
+  Lien        : https://www.agriculture-vision.com/
+  Taille      : 21,03 Go, 2 fichier(s)
+  Remarque    : Maïs et soja (États-Unis), 4 canaux (R, V, B, PIR), masques de 9 anomalies.
+                Sert de référence pour la chaîne multispectrale, pas pour le blé.
+                Télécharger vaut acceptation des conditions (usage académique non
+                commercial, pas de redistribution, citer l'article). Archive de 21 Go,
+                autant une fois extraite.
+
+brazil_spring_wheat_uav : UAV-based multispectral images of spring wheat (Brésil 2018) : biomasse
+  Statut      : non commercial
+  Licence     : CC-BY-NC-3.0 (API publique Mendeley (data_licence = CC BY NC 3.0), consultée
+                le 2026-10-12)
+  Citer       : UAV-based multispectral images of spring wheat. Mendeley Data, V2.
+                doi:10.17632/jzh4x3svv5.2
+  Lien        : https://data.mendeley.com/datasets/jzh4x3svv5/2
+  Taille      : 1,30 Go, 135 fichier(s)
+  Remarque    : Orthomosaïques Parrot Sequoia (4 bandes), vol à 50 m (4,65 cm/px), 88
+                parcelles, 19 dates, trois étalonnages (NC : aucun, PC : panneau, recommandé
+                ; SC : capteur d'ensoleillement), et biomasse mesurée à trois stades. Aucune
+                étiquette de maladie. Les dossiers du dépôt sont aplatis dans les noms de
+                fichiers (« images__PC__… »).
+
+wfd2020 : Wheat Fungi Diseases (WFD2020)
+  Statut      : manuel
+  Licence     : LicenseRef-non-commercial (Conditions du site wfd.sysbio.ru, lues le
+                2026-10-07)
+  Citer       : Genaev et al. (2021), Plants 10(8):1500
+  Lien        : https://wfd.sysbio.ru/
+  Remarque    : Formulaire à remplir sur le site. Usage non commercial seulement :
+                compatible avec le projet académique. 2 414 images, 6 classes (sain,
+                rouilles brune, noire et jaune, oïdium, septoriose), 4,84 Go.
+
+weedmap : WeedMap 2018 (ETH Zurich ASL) : culture / adventice, RedEdge-M et Sequoia
+  Statut      : manuel
+  Licence     : LicenseRef-InC-NC (DataCite doi:10.3929/ethz-c-000788571 (« In Copyright -
+                Non-Commercial Use Permitted »), consulté le 2026-10-12)
+  Citer       : Sa I. et al. (2018). WeedMap: A large-scale semantic weed mapping framework
+                using aerial multispectral imaging and deep neural network for precision
+                farming. Remote Sensing 10(9):1423
+  Lien        : https://doi.org/10.3929/ethz-c-000788571
+  Remarque    : Le dépôt de l'ETH refuse les accès automatisés depuis notre environnement
+                (HTTP 429) : télécharger les archives depuis le DOI. Jeu complet 5,36 Go ;
+                orthomosaïques RedEdge 1,9 Go et Sequoia 1,49 Go ; tuiles RedEdge 637 Mo et
+                Sequoia 444 Mo (page https://ethz-asl.github.io/datasets/weedmap-2018/).
+
+eth_wheat_leaves_2026 : Séries de feuilles de blé malades au champ (ETH Zurich, Scientific Data 2026)
+  Statut      : manuel
+  Licence     : CC-BY-4.0 (DataCite doi:10.3929/ethz-b-000739194, consulté le 2026-10-07)
+  Citer       : Anderegg J., McDonald B.A. (2026). Scientific Data.
+                doi:10.1038/s41597-026-06567-y ; données doi:10.3929/ethz-b-000739194
+  Lien        : https://doi.org/10.3929/ethz-b-000739194
+  Remarque    : 12 520 gros plans de feuilles au champ (Suisse), 406 Go via WebDAV : à
+                télécharger à la main, et seulement la partie utile (pas d'étiquette par
+                classe, seulement des détections automatiques).
+
+striperust_pocket : StripeRust-Pocket (Wuhan University of Technology) : segmentation de la rouille jaune
+  Statut      : manuel
+  Licence     : LicenseRef-non-commercial-agreement (Dépôt GitHub
+                WeizhenLiuBioinform/StripeRustNet, lu le 2026-10-07)
+  Citer       : Liu W. et al., StripeRustNet (dépôt GitHub
+                WeizhenLiuBioinform/StripeRustNet)
+  Lien        : https://github.com/WeizhenLiuBioinform/StripeRustNet
+  Remarque    : 542 images au smartphone avec masques. Accord non commercial à signer et à
+                envoyer aux auteurs : compatible avec le projet académique.
+
+cgiar_iclr2020_wheat_rust : CGIAR, défi ICLR 2020 : rouilles du blé (Zindi)
+  Statut      : manuel
+  Licence     : LicenseRef-non-verifiee (Page du défi Zindi ; licence non vérifiée)
+  Citer       : CGIAR / ICLR 2020 Computer Vision for Agriculture workshop (Zindi)
+  Lien        : https://zindi.africa/competitions/iclr-workshop-challenge-1-cgiar-computer-vision-for-crop-disease
+  Remarque    : Compte Zindi requis. Sain, rouille brune, rouille noire : 876 + 610 images.
+
+kaggle_wheat_plant_diseases : Wheat Plant Diseases (Kaggle, kushagra3204) et ses copies
+  Statut      : écarté
+  Licence     : LicenseRef-provenance-unknown (API Kaggle : CC0 déclaré sans source ;
+                consultée le 2026-10-07)
+  Citer       : —
+  Lien        : https://www.kaggle.com/datasets/kushagra3204/wheat-plant-diseases
+  Remarque    : Compilation sans provenance (14 154 images, 15 classes) ; recopiée sous
+                d'autres licences (urszulakostuch, freedomfighter1290…). Même problème pour
+                devendrababu9666 (images brutes de Yellow-Rust-19, licence d'origine «
+                Unknown », republiées sous MIT) et le jeu « WLD » (jayaprakashpondy,
+                srkuhin), qui contient les images John Innes sous une autre licence.

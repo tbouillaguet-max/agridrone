@@ -1,6 +1,7 @@
 """Registre des sources de données, téléchargement idempotent et vérification d'intégrité.
 
-* Le registre (``configs/data/sources.yaml``) décrit chaque source : licence, preuve de
+* Chaque projet a son registre (``ble/configs/data/sources.yaml``,
+  ``olivier/configs/data/sources.yaml``), qui décrit chaque source : licence, preuve de
   vérification, attribution, fichiers et sommes de contrôle publiées.
 * :func:`download_file` télécharge en flux vers un fichier ``.part``, calcule md5 et
   sha256 au passage, vérifie taille et empreintes, puis renomme de façon atomique. Un
@@ -34,6 +35,7 @@ import requests
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from agridrone.core.config import ConfigError, dump_yaml, load_yaml
+from agridrone.core.paths import Project
 
 #: Licences jugées compatibles avec un usage commercial (identifiants SPDX ; GPL-3.0 :
 #: copyleft, réutilisation commerciale possible sous ses conditions).
@@ -92,11 +94,6 @@ class SourceFile(BaseModel):
         return value
 
 
-#: Projet servi par une source : ``wheat`` (blé, y compris les jeux qui valident la chaîne
-#: multispectrale du blé, comme WeedsGalore) ou ``olive`` (olivier).
-Project = Literal["wheat", "olive"]
-
-
 Status = Literal["retained", "candidate", "noncommercial", "manual", "excluded"]
 
 #: Statuts dont les fichiers sont téléchargés par défaut (aucune option à passer : une
@@ -129,7 +126,6 @@ class Source(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str
-    project: Project
     task: Literal["classification", "detection", "segmentation", "regression"]
     status: Status
     license: str
@@ -175,12 +171,10 @@ class Registry(BaseModel):
 
     sources: dict[str, Source]
 
-    def selected(
-        self, ids: list[str] | None = None, project: Project | None = None
-    ) -> dict[str, Source]:
+    def selected(self, ids: list[str] | None = None) -> dict[str, Source]:
         """Sources à télécharger : ``ids`` explicites, sinon toutes les sources
-        téléchargeables, quelle que soit leur licence, éventuellement limitées à un
-        ``project``. Les sources « manuel » et « écarté » n'ont pas de fichier."""
+        téléchargeables, quelle que soit leur licence. Les sources « manuel » et
+        « écarté » n'ont pas de fichier."""
         if ids:
             unknown = [i for i in ids if i not in self.sources]
             if unknown:
@@ -190,22 +184,15 @@ class Registry(BaseModel):
             if manual:
                 raise ConfigError(
                     f"Sources sans téléchargement automatique : {', '.join(manual)} "
-                    "(voir LICENCES_DONNEES.txt)"
+                    "(voir le fichier LICENCES_DONNEES.txt du projet)"
                 )
             return chosen
-        return {
-            i: s
-            for i, s in self.sources.items()
-            if s.downloadable and (project is None or s.project == project)
-        }
+        return {i: s for i, s in self.sources.items() if s.downloadable}
 
 
-PROJECT_TITLES: dict[str, str] = {"wheat": "BLÉ", "olive": "OLIVIER"}
-
-
-def licence_report(registry: Registry, lock: LockFile | None = None) -> str:
-    """Texte de ``LICENCES_DONNEES.txt`` : statut, licence, conditions et attribution de
-    chaque source, groupées par projet. Déterministe (aucune date) pour être versionné."""
+def licence_report(registry: Registry, project: Project, lock: LockFile | None = None) -> str:
+    """Texte du fichier ``LICENCES_DONNEES.txt`` d'un projet : statut, licence, conditions
+    et attribution de chaque source. Déterministe (aucune date) pour être versionné."""
     import textwrap
 
     def field(label: str, text: str) -> list[str]:
@@ -218,16 +205,18 @@ def licence_report(registry: Registry, lock: LockFile | None = None) -> str:
             break_long_words=False,
         )
 
+    titre = f"LICENCES DES DONNÉES : PROJET {project.title}"
     lines = [
-        "LICENCES DES DONNÉES (agridrone)",
-        "================================",
+        titre,
+        "=" * len(titre),
         "",
         "Usage : projet académique, non commercial (confirmé le 12 octobre 2026).",
-        "Toutes les sources téléchargeables sont récupérées par défaut :",
-        "    uv run agridrone data download",
+        "Toutes les sources téléchargeables du projet sont récupérées par défaut :",
+        f"    uv run agridrone data download --project {project.name}",
         "",
-        "Fichier généré depuis configs/data/sources.yaml par `uv run agridrone data licences` :",
-        "ne pas le modifier à la main.",
+        f"Fichier généré depuis {project.registry} par la commande",
+        f"`uv run agridrone data licences --project {project.name}`",
+        "(ne pas le modifier à la main).",
         "",
         "Statuts",
         "-------",
@@ -239,31 +228,27 @@ def licence_report(registry: Registry, lock: LockFile | None = None) -> str:
         "confirmer » une fois la provenance établie), puis réentraîner les modèles sans les",
         "autres. Les licences CC BY imposent de citer les auteurs (ligne « Citer »).",
     ]
-    for project, title in PROJECT_TITLES.items():
-        sources = {k: s for k, s in registry.sources.items() if s.project == project}
-        lines += ["", "", title, "=" * len(title)]
-        if not sources:
-            lines += ["", "  (aucune source pour l'instant)"]
-        for source_id, src in sources.items():
-            sizes = [
-                f.size or ((lock.get(f"{source_id}/{f.name}") or {}).get("size") if lock else None)
-                for f in src.files
-            ]
-            lines += ["", f"{source_id} : {src.title}"]
-            lines += field("Statut", STATUS_LABELS[src.status][0])
-            lines += field("Licence", f"{src.license} ({src.license_evidence})")
-            if src.terms:
-                lines += field("Conditions", src.terms)
-            lines += field("Citer", src.attribution)
-            lines += field("Lien", src.homepage)
-            if src.files:
-                total = sum(s or 0 for s in sizes) / 1e9
-                size = f"{total:.2f} Go".replace(".", ",")
-                if None in sizes:
-                    size += " (+ fichiers de taille inconnue avant le premier téléchargement)"
-                lines += field("Taille", f"{size}, {len(src.files)} fichier(s)")
-            if src.notes:
-                lines += field("Remarque", src.notes)
+    lines += ["", "", "Sources", "======="]
+    for source_id, src in registry.sources.items():
+        sizes = [
+            f.size or ((lock.get(f"{source_id}/{f.name}") or {}).get("size") if lock else None)
+            for f in src.files
+        ]
+        lines += ["", f"{source_id} : {src.title}"]
+        lines += field("Statut", STATUS_LABELS[src.status][0])
+        lines += field("Licence", f"{src.license} ({src.license_evidence})")
+        if src.terms:
+            lines += field("Conditions", src.terms)
+        lines += field("Citer", src.attribution)
+        lines += field("Lien", src.homepage)
+        if src.files:
+            total = sum(s or 0 for s in sizes) / 1e9
+            size = f"{total:.2f} Go".replace(".", ",")
+            if None in sizes:
+                size += " (+ fichiers de taille inconnue avant le premier téléchargement)"
+            lines += field("Taille", f"{size}, {len(src.files)} fichier(s)")
+        if src.notes:
+            lines += field("Remarque", src.notes)
     return "\n".join(lines) + "\n"
 
 

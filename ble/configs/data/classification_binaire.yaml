@@ -1,0 +1,67 @@
+# Jeu binaire sain / malade (toute maladie) pour le modèle « sain fiable ».
+# Préparation : uv run agridrone data prepare-classification \
+#                 --data-config ble/configs/data/classification_binaire.yaml
+# Sortie : data/ble/processed/classification_binaire (le jeu à 5 classes n'est pas touché).
+#
+# Entraînement : John Innes + Henan (7 états : sain feuille / épi, rouilles jaune et
+# brune, oïdium, septoriose, fusariose et septoriose de l'épi). Plus la classe
+# « malade » couvre de maladies, moins une maladie inconnue risque de passer pour saine.
+# Tests inter-sources, jamais vus : Éthiopie, YellowRust, Tekirdağ, et Bangladesh
+# (4 maladies absentes de l'entraînement : test des maladies jamais vues).
+name: classification_binaire
+classes: [healthy, diseased]
+fractions: {train: 0.7, val: 0.15, test: 0.15}
+near_duplicate_distance: 8
+near_duplicate_confirm: 12
+seed: 0
+
+sources:
+  jic_wheat_disease_999:
+    root: "Long 2023 Plant Path 999 photos"
+    label_from: filename_prefix
+    role: train
+    sequence_gap: 2
+    mapping: {Healthy: healthy, YellowRust: diseased, BrownRust: diseased, Septoria: diseased, Mildew: diseased}
+
+  # Pas de regroupement par numéros de fichier : la numérotation est continue dans chaque
+  # classe (renumérotée par les auteurs), elle relierait toute une classe en un bloc.
+  # Groupes = quasi-doublons seulement (pas d'EXIF) : les scores internes (val, test)
+  # du Henan sont donc un peu optimistes ; les tests inter-sources ne sont pas concernés.
+  henan_wheat_disease:
+    root: "xiaomai/xiaomai/images"
+    label_from: filename_prefix
+    role: train
+    mapping:
+      WheatLeaf: healthy
+      WheatEar: healthy
+      StripeRust: diseased
+      LeafRust: diseased
+      Powdery: diseased
+      Scab: diseased
+      Glume: diseased
+
+  ethiopia_wheat_leaf:
+    root: "wheat_leaf/wheat_leaf"
+    role: test
+    mapping: {Healthy: healthy, stripe_rust: diseased, septoria: diseased}
+
+  kaggle_yellowrust_2223:
+    root: "yellowrust-2223-dataset/YR-22-23"
+    role: test
+    mapping: {healthy: healthy, rust: diseased}
+
+  tekirdag_powdery_mildew:
+    root: "images-20240730T173242Z-001/images"
+    role: test
+    mapping: {train: diseased, val: diseased, test: diseased}
+
+  # Images originales seulement (les augmentées ne sont pas extraites).
+  bangladesh_wheat_disease:
+    root: "Wheat Disease/Wheat Disease/Original Dataset"
+    role: test
+    mapping:
+      HealthyLeaf: healthy
+      BlackPoint: diseased
+      FusariumFootRot: diseased
+      LeafBlight: diseased
+      WheatBlast: diseased

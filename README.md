@@ -1,46 +1,38 @@
-# agridrone — ML pour drone agricole (blé tendre d'hiver)
+# agridrone — ML pour drone agricole (blé et olivier)
 
-Briques de machine learning d'un drone autonome qui survole des parcelles de blé
-tendre d'hiver, photographie, analyse et transmet les résultats. Ce dépôt ne
-couvre pour l'instant **que la partie ML** (données, entraînement, évaluation,
-export vers l'embarqué).
+Briques de machine learning d'un drone autonome qui survole des cultures,
+photographie, analyse et transmet les résultats. Ce dépôt ne couvre pour l'instant
+**que la partie ML** (données, entraînement, évaluation, export vers l'embarqué).
 
-## Architecture cible
+Il contient **deux projets séparés**, un par culture. Chacun a son dossier, son
+registre de sources, ses données, ses runs, ses rapports et son fichier de licences ;
+ils ne partagent aucun jeu de données. Seul le code Python (`src/agridrone/`) est commun.
 
-```
-                        ┌─────────────────────────────────────────────┐
-  Caméra multispectrale │ NIVEAU PARCELLE                             │
-  (N bandes, GeoTIFF) ──▶ orthophoto ─▶ tuiles N bandes ─▶ segmentation│──▶ carte des zones
-                        │                 (U-Net smp, entrée N canaux) │    stressées / malades
-                        └─────────────────────────────────────────────┘
-                        ┌─────────────────────────────────────────────┐
-  Caméra RVB haute      │ NIVEAU PLANTE                               │
-  résolution (vol bas) ─▶ image ─┬▶ détecteur YOLO (pucerons, insectes)│──▶ comptages,
-                        │        └▶ classifieur (état feuille / épi)  │    diagnostics
-                        └─────────────────────────────────────────────┘
-```
-
-- **Niveau parcelle** : segmentation de tuiles d'orthophoto multispectrale.
-  Règle : on n'entraîne le multispectral **que** sur des tâches disposant de
-  données publiques vérifiées ; le code est générique en nombre de bandes
-  (3, 4, 5… N) pour accueillir plus tard le jeu de données du drone.
-- **Niveau plante** : détection de petits objets (pucerons) par YOLO sur
-  images RVB haute résolution, et classification de l'état sanitaire
-  (sain / maladies) par transfer learning timm.
+| Projet | Dossier | Contenu | État |
+|---|---|---|---|
+| **Blé tendre d'hiver** | [`ble/`](ble/README.md) | classifieur des maladies du blé (5 classes, et sain / malade), segmentation multispectrale N bandes, export ONNX | baselines faites ; pucerons reportés |
+| **Olivier** | [`olivier/`](olivier/README.md) | inventaire des données (maladies, ravageurs, drone, fruits), TP maladies des feuilles et mouche de l'olive | inventaire et TP faits ; modèles du projet à faire |
 
 ## Structure du dépôt
 
 ```
-configs/            configs YAML (héritage `_base_`, surcharges en CLI) — voir configs/README.md
+ble/                projet blé — voir ble/README.md
+  configs/          configs des expériences + registre des sources (configs/data/)
+  notebooks/        exploration (aucune logique métier : elle vit dans src/)
+  reports/          inventaire des données, pipeline, résultats des baselines
+  LICENCES_DONNEES.txt
+olivier/            projet olivier — voir olivier/README.md
+  configs/          base + registre des sources (configs/data/)
+  reports/          inventaire des données
+  tp/               travaux pratiques (notebooks élève et corrigés)
+  LICENCES_DONNEES.txt
+configs/            socle commun : base.yaml, capteurs (sensors/) — voir configs/README.md
 data/               données, jamais versionnées — voir data/README.md
-                    (registre des sources et empreintes : configs/data/)
-  raw/              téléchargements bruts (immuables)
-  interim/          extractions / conversions intermédiaires
-  processed/        jeux prêts à l'entraînement + fichiers de découpage
-notebooks/          exploration (aucune logique métier : elle vit dans src/)
-reports/            inventaire des données, résultats des baselines
-src/agridrone/
-  core/             socle : config, device, graines, environnement, runs + MLflow
+  ble/              raw/ (téléchargements bruts), interim/ (extractions), processed/ (jeux prêts)
+  olivier/          idem
+runs/               sorties des entraînements, jamais versionnées : runs/ble/, runs/olivier/
+src/agridrone/      code commun aux deux projets
+  core/             socle : config, device, graines, environnement, runs + MLflow, projets
   data/             téléchargement, conversion, découpage, tuilage, augmentations
   models/           YOLO, classifieurs timm, U-Net N bandes
   training/         lanceurs d'entraînement
@@ -77,11 +69,14 @@ uv run agridrone smoke      # run de vérification de bout en bout (voir plus ba
 
 ## Télécharger toutes les données sur votre PC
 
-Le registre [`configs/data/sources.yaml`](configs/data/sources.yaml) liste chaque jeu
-avec ses liens, tailles et sommes de contrôle. Une commande télécharge, vérifie et extrait
-**tout ce qui est téléchargeable**, quelle que soit la licence (projet académique non
-commercial) : aucune option n'est nécessaire pour reproduire une expérience. Statut,
-licence et attribution de chaque jeu : [`LICENCES_DONNEES.txt`](LICENCES_DONNEES.txt).
+Chaque projet a son registre, qui liste chaque jeu avec ses liens, tailles et sommes de
+contrôle : [`ble/configs/data/sources.yaml`](ble/configs/data/sources.yaml) et
+[`olivier/configs/data/sources.yaml`](olivier/configs/data/sources.yaml). Une commande
+télécharge, vérifie et extrait **tout ce qui est téléchargeable**, quelle que soit la
+licence (projet académique non commercial) : aucune option n'est nécessaire pour
+reproduire une expérience. Statut, licence et attribution de chaque jeu :
+[`ble/LICENCES_DONNEES.txt`](ble/LICENCES_DONNEES.txt) et
+[`olivier/LICENCES_DONNEES.txt`](olivier/LICENCES_DONNEES.txt).
 
 1. **Installer** [Git](https://git-scm.com/downloads), [uv](https://docs.astral.sh/uv/getting-started/installation/)
    et un outil RAR (archive d'Éthiopie, quelques jeux olivier) :
@@ -99,38 +94,39 @@ licence et attribution de chaque jeu : [`LICENCES_DONNEES.txt`](LICENCES_DONNEES
    ```
 3. **Télécharger** :
    ```bash
-   uv run agridrone data list                    # jeux, statut, licence, taille
-   uv run agridrone data download                # tout (blé et olivier)
-   uv run agridrone data download --project wheat   # ou un seul projet (wheat, olive)
-   uv run agridrone data download --no-extract   # archives seules, sans extraction
-   uv run agridrone data verify                  # revérifie les sommes de contrôle
+   uv run agridrone data list                      # jeux, statut, licence, taille (les deux projets)
+   uv run agridrone data download                  # tout (blé et olivier)
+   uv run agridrone data download --project ble    # un seul projet : ble ou olivier
+   uv run agridrone data download --no-extract     # archives seules, sans extraction
+   uv run agridrone data verify                    # revérifie les sommes de contrôle
    ```
-   La commande reprend là où elle s'est arrêtée : un fichier déjà présent et conforme
-   n'est pas retéléchargé. Les jeux marqués « manuel » (formulaire, compte, accord, ou
-   dépôt qui refuse les accès automatisés) sont listés avec leur lien dans
-   `LICENCES_DONNEES.txt`.
+   Les fichiers vont dans `data/ble/` et `data/olivier/`. La commande reprend là où elle
+   s'est arrêtée : un fichier déjà présent et conforme n'est pas retéléchargé. Les jeux
+   marqués « manuel » (formulaire, compte, accord, ou dépôt qui refuse les accès
+   automatisés) sont listés avec leur lien dans le `LICENCES_DONNEES.txt` du projet.
 
 **Espace disque.** La commande vérifie l'espace libre avant de commencer.
 
 | Projet | Archives | Avec extraction (environ) | Plus gros jeux |
 |---|---|---|---|
-| Blé (`--project wheat`) | 36,8 Go + Yellow-Rust-19 (1,55 Go déclarés) | 80 Go | Agriculture-Vision 21 Go |
-| Olivier (`--project olive`) | 137 Go + quelques jeux Kaggle et git de taille inconnue (au moins 1,3 Go) | 270 Go | images brutes ICAERUS 72 Go, SPADE 15 Go |
+| Blé (`--project ble`) | 36,8 Go + Yellow-Rust-19 (1,55 Go déclarés) | 80 Go | Agriculture-Vision 21 Go |
+| Olivier (`--project olivier`) | 137 Go + quelques jeux Kaggle et git de taille inconnue (au moins 1,3 Go) | 270 Go | images brutes ICAERUS 72 Go, SPADE 15 Go |
 
-`--no-extract` ne garde que les archives. Pour mettre les données sur un autre disque,
-créer `configs/local.yaml` :
+`--no-extract` ne garde que les archives. Pour mettre les données d'un projet sur un
+autre disque, créer par exemple `olivier/configs/local.yaml` (ignoré par git) :
 
 ```yaml
 _base_: base.yaml
-paths: {raw: "D:/agridrone/raw", interim: "D:/agridrone/interim", processed: "D:/agridrone/processed"}
+paths: {raw: "D:/agridrone/olivier/raw", interim: "D:/agridrone/olivier/interim", processed: "D:/agridrone/olivier/processed"}
 ```
 
-puis ajouter `-c configs/local.yaml` à chaque commande `data`.
+puis ajouter `--project olivier -c olivier/configs/local.yaml` à chaque commande `data`
+(même chose pour le blé avec `ble/configs/local.yaml` et `--project ble`).
 
 `uv run agridrone data list --files` affiche le lien direct de chaque fichier, pour un
 téléchargement à la main dans un navigateur.
 
-## Socle : device, graines, configs, suivi
+## Socle commun : device, graines, configs, suivi
 
 - **Device** (`agridrone.core.device`) : `device: auto` choisit CUDA, puis MPS,
   puis CPU. Une demande explicite indisponible (`cuda`, `mps`) **échoue** au lieu
@@ -141,62 +137,23 @@ téléchargement à la main dans un navigateur.
   PyTorch (plus lent ; à réserver aux runs de référence).
 - **Configs** (`agridrone.core.config`) : YAML avec héritage, surcharges
   `cle.sous_cle=valeur`, validation pydantic stricte (une faute de frappe dans
-  une clé est une erreur). Détails dans [configs/README.md](configs/README.md).
+  une clé est une erreur). `configs/base.yaml` est commun ; `ble/configs/base.yaml`
+  et `olivier/configs/base.yaml` en héritent et fixent les dossiers du projet.
+  Détails dans [configs/README.md](configs/README.md).
+- **Projets** (`agridrone.core.paths.PROJECTS`) : emplacement de la config, du
+  registre, du fichier d'empreintes et du fichier de licences de chaque projet.
 - **Runs** (`agridrone.core.run`) : chaque run crée
-  `runs/<tâche>/<date>_<nom>_<hash>/` avec la config résolue (`config.yaml`) et
+  `runs/<projet>/<tâche>/<date>_<nom>_<hash>/` avec la config résolue (`config.yaml`) et
   l'environnement (`environment.json` : commit git, état modifié, versions,
   device). Ces fichiers et la config aplatie sont journalisés dans **MLflow**
-  (base `mlflow.db`, artefacts `mlartifacts/`, tous deux ignorés par git).
+  (base `mlflow.db`, artefacts `mlartifacts/`, tous deux ignorés par git ; une
+  expérience par projet : `agridrone-ble`, `agridrone-olivier`).
 
 ```bash
 uv run agridrone config -c configs/base.yaml seed=1 device=cpu   # config résolue + empreinte
 uv run agridrone smoke seed=1                                     # mini-entraînement suivi dans MLflow
 uv run mlflow ui --backend-store-uri sqlite:///mlflow.db          # interface : http://127.0.0.1:5000
 ```
-
-## Étapes du projet et commandes
-
-| Chantier | Contenu | Commande | État |
-|---|---|---|---|
-| 0 | Socle (structure, device, graines, configs, MLflow) | `agridrone info`, `agridrone config`, `agridrone smoke` | fait |
-| 1 | Inventaire et vérification des données | — (livrables : [reports/data_inventory.md](reports/data_inventory.md), [reports/data_requests.md](reports/data_requests.md)) | fait |
-| 2 | Pipeline de données : téléchargement vérifié, conversion, découpage par groupes, tuilage, augmentations, exploration | `agridrone data list\|download\|verify\|prepare-classification\|prepare-segmentation` ; [notebook](notebooks/01_exploration_donnees.ipynb) ; [reports/data_pipeline.md](reports/data_pipeline.md) | fait |
-| 3 | Baseline YOLO11n/s pucerons (RVB, petits objets, SAHI) | — | **reporté** (pucerons mis de côté) |
-| 4 | Baseline classifieur maladies du blé (EfficientNet-B0, ConvNeXt-Tiny), sortie « incertain », tests inter-sources ; modèle binaire sain / malade (§ 1.7) | `agridrone train -c configs/classification/<modèle>.yaml`, `agridrone evaluate --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 1 | fait |
-| 5 | Segmentation multispectrale N bandes vs indices (NDVI, NDRE, Otsu), ablation RVB | `agridrone train -c configs/segmentation/unet_5bandes.yaml` ; [reports/baseline_results.md](reports/baseline_results.md) § 2 | fait (aucun jeu public pour le blé : chaîne validée sur WeedsGalore, inventaire § 7.2) |
-| 6 | Rapport des baselines, export ONNX, temps d'inférence | `agridrone export --run <run>` ; [reports/baseline_results.md](reports/baseline_results.md) § 3 et 4 | fait (temps Jetson à mesurer sur la cible) |
-| Olivier | Inventaire des données (maladies, ravageurs, drone multispectral, fruits), registre téléchargeable | `agridrone data download --project olive` ; [reports/data_inventory_olivier.md](reports/data_inventory_olivier.md) | inventaire fait (33 jeux téléchargeables, 7 manuels) ; modèles à faire |
-| TP | Travaux pratiques : reconnaître les maladies (feuilles) et les parasites (mouche de l'olive dans les pièges) | `uv run jupyter lab tp/` ; [tp/README.md](tp/README.md) | fait (notebooks élève et corrigés) |
-
-Données, de bout en bout (détails dans [reports/data_pipeline.md](reports/data_pipeline.md)) :
-
-```bash
-uv run agridrone data list                          # registre : sources, statut, licence
-uv run agridrone data download                      # tout ce qui est téléchargeable
-uv run agridrone data prepare-classification        # data/processed/classification/
-uv run agridrone data prepare-segmentation          # data/processed/segmentation/
-```
-
-L'extraction des archives RAR demande `unar` (`apt install unar` ou `brew install unar`).
-Entraînement et évaluation (chantiers 4 et suivants) : la tâche est lue dans la config.
-
-```bash
-uv run agridrone train -c configs/classification/efficientnet_b0.yaml num_workers=2
-uv run agridrone train -c configs/classification/convnext_tiny.yaml num_workers=2
-uv run agridrone evaluate --run runs/classification/<run> eval.target_coverage=0.8
-# modèle binaire sain / malade : jeu préparé à part, puis seuil « sain très sûr »
-uv run agridrone data prepare-classification --data-config configs/data/classification_binaire.yaml
-uv run agridrone train -c configs/classification/binaire_convnext_tiny.yaml num_workers=2
-uv run agridrone evaluate --run runs/classification/<run> eval.max_missed_rate=0.0
-uv run agridrone train -c configs/segmentation/unet_5bandes.yaml num_workers=2
-uv run agridrone export --run runs/segmentation/<run>     # ONNX + vérification + latences
-```
-
-Chaque run écrit dans `runs/<tâche>/<date>_<nom>_<empreinte>/` : `best.pt` (checkpoint
-autoporteur, lisible avec `torch.load(weights_only=True)`, avec sa règle de décision),
-`history.csv` / `history.png`, `eval/metrics.json`, et par ensemble évalué les
-prédictions (CSV) et les matrices de confusion. Les mêmes éléments sont journalisés dans
-MLflow.
 
 ## Licences : points d'attention
 
@@ -211,11 +168,13 @@ MLflow.
   MIT. Son successeur `albumentationsx` est sous AGPL-3.0.
 - **Données** : projet **académique, non commercial** (confirmé le 12 octobre 2026). Les
   jeux sous licence non commerciale sont donc téléchargés et utilisables comme les
-  autres. Statut, licence, conditions et attribution de chaque jeu :
-  [`LICENCES_DONNEES.txt`](LICENCES_DONNEES.txt) (généré depuis le registre par
-  `uv run agridrone data licences`) ; vérifications détaillées :
-  [reports/data_inventory.md](reports/data_inventory.md). Si le projet devenait
-  commercial, il faudrait réentraîner sans les jeux « non commercial ».
+  autres. Statut, licence, conditions et attribution de chaque jeu, par projet :
+  [`ble/LICENCES_DONNEES.txt`](ble/LICENCES_DONNEES.txt) et
+  [`olivier/LICENCES_DONNEES.txt`](olivier/LICENCES_DONNEES.txt) (générés depuis les
+  registres par `uv run agridrone data licences`) ; vérifications détaillées :
+  [ble/reports/data_inventory.md](ble/reports/data_inventory.md) et
+  [olivier/reports/data_inventory.md](olivier/reports/data_inventory.md). Si le projet
+  devenait commercial, il faudrait réentraîner sans les jeux « non commercial ».
 - **Poids pré-entraînés** (timm : EfficientNet-B0, ConvNeXt-Tiny, ResNet-18) : publiés sous
   Apache-2.0. Ils sont appris sur ImageNet, dont les images ne sont accessibles que pour
   un usage non commercial. Le statut juridique des poids qui en dérivent n'est pas

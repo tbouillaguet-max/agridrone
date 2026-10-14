@@ -1,6 +1,6 @@
 """Normalisation par bande, avec statistiques calculées sur l'ensemble d'entraînement.
 
-Méthodes (voir aussi reports/data_pipeline.md) :
+Méthodes (voir aussi ble/reports/data_pipeline.md) :
 
 * ``reflectance`` : données déjà en réflectance calibrée ; on applique seulement le
   facteur d'échelle du capteur et on écrête à [0, 1.5].

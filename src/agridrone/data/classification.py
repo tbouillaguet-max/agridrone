@@ -2,7 +2,7 @@
 
 Étapes :
 
-1. **Inventaire** de chaque source extraite (``data/interim/<source>``) : étiquette
+1. **Inventaire** de chaque source extraite (``data/ble/interim/<source>``) : étiquette
    brute lue dans le nom du dossier parent ou le préfixe du nom de fichier, puis
    traduite vers les classes canoniques par la table ``mapping`` de la config.
 2. **Empreintes** : sha1 (doublons exacts) et dHash (quasi-doublons).

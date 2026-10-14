@@ -69,7 +69,7 @@ VEGETATION = "végétation"
 class SegmentationData(StrictModel):
     #: Jeu préparé : ``images/*.npy`` (C, H, W) dans [0, 1], ``masks/*.png``,
     #: ``index.csv`` (ensembles), ``dataset.json`` (noms des bandes et des classes).
-    dir: Path = Path("data/processed/segmentation/weedsgalore")
+    dir: Path = Path("data/ble/processed/segmentation/weedsgalore")
     #: Bandes d'entrée du modèle, par nom et dans cet ordre. Vide : toutes les bandes.
     bands: list[str] = Field(default_factory=list)
     background_class: str = "background"

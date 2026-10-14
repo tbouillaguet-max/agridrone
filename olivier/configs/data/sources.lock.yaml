@@ -1,0 +1,47 @@
+comment: 'Généré par `agridrone data download` : ne pas modifier à la main.'
+files:
+  olive_leaf_peacock_diker/zeytin.zip:
+    sha256: 3ce81c348768fd3d89fb4f97aeec4b891e0d0b5a97b3595cefcda9dfc6cd539d
+    size: 737053307
+  olive_leaf_peacock_peru/peacock-spot-detection-in-olive-leaves.zip:
+    sha256: 7e9ba611ce2ba8dbf286dd976a6e559dd698abc7c4624180c1aedbb2f13dcbdf
+    size: 331394080
+  olive_leaf_tacna/224x224.zip:
+    sha256: 6a8403411695066653190709e6606f9ca8590e3f10841ac70e16fd4b448ab40a
+    size: 2890450
+  olive_leaf_tacna/README.md:
+    sha256: 09de2dcf80246bd8401cf187302d150ed7c3a70c836bfc3844ea375d242f25cf
+    size: 1433
+  olive_leaf_uguz_uysal/README.md:
+    sha256: 845ca7d2ea0e73032aa2d785daa48699dc0d0f3a8fe92b28a530f2e3f77d97c3
+    size: 323
+  olive_leaf_uguz_uysal/Train1.rar:
+    sha256: 607224e6b7ca9a0b24f2dfb990ac3675cfed2c72ee85c3480aa0916a2f806bce
+    size: 24696501
+  olive_leaf_uguz_uysal/Train2.rar:
+    sha256: a8d01b463b0c033271e9af60b0ac2e76f1ec9681303711d37503169aeccaa200
+    size: 21730642
+  olive_leaf_uguz_uysal/test.rar:
+    sha256: ec683420b4dc4b37a5e87e61ca609b1bcc96aa1891bf3495478639e64940f08e
+    size: 19531285
+  olive_leaf_uguz_uysal/train3.rar:
+    sha256: cb48d13e637e71e8650dea0f93518c6b559c3bd03395043bfd86c2ec3361598d
+    size: 11666493
+  olive_leaf_uguz_uysal/train4.rar:
+    sha256: ef4a51d76947f5a9a48def4467379a1a8aa5796662ac6651d1c21043a00b4890
+    size: 22308188
+  olive_xf_nplants_2018/LICENSE:
+    sha256: 3fa0b549bdfd791fe2c208428ec4d8f31dee8db88b293cd60aff5ee69d847442
+    size: 1122
+  olive_xf_nplants_2018/README.md:
+    sha256: 29ed96744e0dd8d8007f7be552a22aa8cc53d07ac449af7342e0d3cd9f0ad63d
+    size: 6700
+  olive_xf_nplants_2018/data__1-Data_Global_model_Xf-updated.csv:
+    sha256: 2d7c0a1c20749271efae2b59162b8ee6940e64509738b1dfc1230c07f3e2d793
+    size: 6859153
+  olive_xf_nplants_2018/data__2-Data_Parcel_with_qPCR.csv:
+    sha256: 9496c4e573db6f1df999cb2a7585825ff0dbbd68c0a96303e8cc56ed2cc52782
+    size: 65748
+  olive_xf_nplants_2018/data__3-Data_Orchard_with_qPCR.csv:
+    sha256: b239f16bcc546fd29cdf8da2a0d1c9f01121a48a470ae7518702287c82689049
+    size: 96863

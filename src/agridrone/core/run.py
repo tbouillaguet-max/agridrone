@@ -1,6 +1,7 @@
 """Initialisation d'un run reproductible et suivi MLflow.
 
-Chaque run produit un dossier ``runs/<task>/<date>_<name>_<hash>/`` contenant :
+Chaque run produit un dossier ``<paths.runs>/<task>/<date>_<name>_<hash>/`` (par
+exemple ``runs/ble/classification/...``) contenant :
 
 * ``config.yaml`` — la config résolue et validée (héritage + surcharges) ;
 * ``environment.json`` — commit git, état « modifié », versions des paquets,

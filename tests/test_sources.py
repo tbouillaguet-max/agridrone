@@ -13,6 +13,7 @@ import pytest
 import requests
 
 from agridrone.core.config import ConfigError
+from agridrone.core.paths import PROJECTS
 from agridrone.data.sources import (
     COMMERCIAL_LICENSES,
     IntegrityError,
@@ -57,7 +58,6 @@ def server(tmp_path: Path) -> Iterator[tuple[str, Path]]:
 def _source(files: list[SourceFile], **extra: object) -> Source:
     base = {
         "title": "test",
-        "project": "wheat",
         "task": "classification",
         "status": "retained",
         "license": "CC-BY-4.0",
@@ -198,27 +198,27 @@ def test_everything_downloadable_is_selected_by_default() -> None:
         registry.selected(["nope"])
 
 
-def test_licence_report_lists_every_source_by_project() -> None:
+def test_licence_report_lists_every_source() -> None:
     from agridrone.data.sources import licence_report
 
     registry = Registry(
         sources={
-            "ble": _source([SourceFile(name="a", url="http://x", size=2_500_000_000)]),
+            "olive": _source([SourceFile(name="a", url="http://x", size=2_500_000_000)]),
             "olive_nc": _source(
                 [SourceFile(name="b", url="http://x")],
-                project="olive",
                 status="noncommercial",
                 license="CC-BY-NC-4.0",
                 terms="https://example.invalid/terms.pdf",
             ),
         }
     )
-    text = licence_report(registry)
-    assert text.index("BLÉ") < text.index("ble : test") < text.index("OLIVIER")
-    assert text.index("OLIVIER") < text.index("olive_nc : test")
+    text = licence_report(registry, PROJECTS["olivier"])
+    assert text.startswith("LICENCES DES DONNÉES : PROJET OLIVIER")
+    assert "--project olivier" in text and "olivier/configs/data/sources.yaml" in text
+    assert text.index("olive : test") < text.index("olive_nc : test")
     assert "non commercial" in text and "https://example.invalid/terms.pdf" in text
     assert "2,50 Go, 1 fichier(s)" in text and "taille inconnue" in text
-    assert licence_report(registry) == text  # déterministe : versionnable
+    assert licence_report(registry, PROJECTS["olivier"]) == text  # déterministe : versionnable
 
 
 def test_extract_tar_gz_is_safe(tmp_path: Path) -> None:
@@ -255,23 +255,6 @@ def test_extract_tar_gz_is_safe(tmp_path: Path) -> None:
         assert not (tmp_path / f"evil_out_{bad[-4:]}").exists()
 
 
-def test_registry_selects_by_project() -> None:
-    registry = Registry(
-        sources={
-            "ble": _source([SourceFile(name="a", url="http://x")]),
-            "olive": _source([SourceFile(name="b", url="http://x")], project="olive"),
-            "olive_cand": _source(
-                [SourceFile(name="c", url="http://x")], project="olive", status="candidate"
-            ),
-        }
-    )
-    assert list(registry.selected()) == ["ble", "olive", "olive_cand"]
-    assert list(registry.selected(None, "olive")) == ["olive", "olive_cand"]
-    assert list(registry.selected(None, "wheat")) == ["ble"]
-    with pytest.raises(ValueError):
-        _source([SourceFile(name="a", url="http://x")], project="vigne")
-
-
 def test_find_tool_looks_for_7zip_and_tar_on_windows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -293,8 +276,9 @@ def test_find_tool_looks_for_7zip_and_tar_on_windows(
     assert sources.find_tool("7z", windows=False) is None  # hors Windows : le PATH seulement
 
 
-def test_repository_registry_is_valid(repo_root: Path) -> None:
-    registry = load_registry(repo_root / "configs" / "data" / "sources.yaml")
+@pytest.mark.parametrize("name", list(PROJECTS))
+def test_repository_registry_is_valid(repo_root: Path, name: str) -> None:
+    registry = load_registry(repo_root / PROJECTS[name].registry)
     retained = {k: s for k, s in registry.sources.items() if s.status == "retained"}
     assert retained, "au moins une source retenue"
     assert all(s.license in COMMERCIAL_LICENSES for s in retained.values())
@@ -305,14 +289,21 @@ def test_repository_registry_is_valid(repo_root: Path) -> None:
             assert f.url.startswith("https://")
 
 
-def test_licence_file_is_up_to_date(repo_root: Path) -> None:
+def test_projects_do_not_share_sources(repo_root: Path) -> None:
+    ids = [set(load_registry(repo_root / p.registry).sources) for p in PROJECTS.values()]
+    assert not set.intersection(*ids), "une source appartient à un seul projet"
+
+
+@pytest.mark.parametrize("name", list(PROJECTS))
+def test_licence_file_is_up_to_date(repo_root: Path, name: str) -> None:
     from agridrone.data.sources import licence_report
 
-    registry = load_registry(repo_root / "configs" / "data" / "sources.yaml")
-    lock = LockFile(repo_root / "configs" / "data" / "sources.lock.yaml")
-    committed = (repo_root / "LICENCES_DONNEES.txt").read_text(encoding="utf-8")
-    assert committed == licence_report(registry, lock), (
-        "LICENCES_DONNEES.txt n'est plus à jour : uv run agridrone data licences"
+    project = PROJECTS[name]
+    registry = load_registry(repo_root / project.registry)
+    lock = LockFile(repo_root / project.lock)
+    committed = (repo_root / project.licences).read_text(encoding="utf-8")
+    assert committed == licence_report(registry, project, lock), (
+        f"{project.licences} n'est plus à jour : uv run agridrone data licences"
     )
 
 
@@ -389,7 +380,6 @@ def test_files_manifest_and_pending_bytes(tmp_path: Path) -> None:
 sources:
   big:
     title: t
-    project: olive
     task: detection
     status: retained
     license: CC-BY-4.0

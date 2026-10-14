@@ -1,0 +1,12 @@
+# Configuration commune au projet OLIVIER : dossiers des données et des runs.
+# Elle hérite de la configuration commune aux deux projets (configs/base.yaml).
+_base_: ../../configs/base.yaml
+
+paths:
+  raw: data/olivier/raw
+  interim: data/olivier/interim
+  processed: data/olivier/processed
+  runs: runs/olivier
+
+tracking:
+  experiment: agridrone-olivier

@@ -13,14 +13,17 @@ Données (chantier 2) :
 * ``data download`` — téléchargement idempotent de tout ce qui est téléchargeable,
   vérification, extraction ;
 * ``data verify``   — revérifie les empreintes des fichiers déjà téléchargés ;
-* ``data licences`` — écrit ``LICENCES_DONNEES.txt`` (statut, licence, attribution) ;
+* ``data licences`` — écrit ``<projet>/LICENCES_DONNEES.txt`` (statut, licence, attribution).
+
+Les commandes ``data list|download|verify|licences`` traitent les deux projets (blé,
+olivier) ou un seul avec ``--project ble|olivier`` ; ``prepare-*`` concernent le blé.
 * ``data prepare-classification`` — jeu « dossiers par classe » + manifeste ;
 * ``data prepare-segmentation`` — jeux N bandes (.npy + masques) et tuilage d'orthophotos.
 
 Modèles (chantiers 4 et suivants) :
 
 * ``train``    — entraîne puis évalue ; la tâche est lue dans la config (``task``) ;
-* ``evaluate`` — réévalue le meilleur modèle d'un run (``--run runs/<tâche>/<run>``) ;
+* ``evaluate`` — réévalue le meilleur modèle d'un run (``--run runs/<projet>/<tâche>/<run>``) ;
 * ``export``   — export ONNX du meilleur modèle d'un run, vérification et temps d'inférence.
 
 Les surcharges s'écrivent ``cle.sous_cle=valeur`` après les options.
@@ -32,18 +35,21 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
 
-if TYPE_CHECKING:
-    from agridrone.data.sources import LockFile, Source
+from agridrone.core.paths import PROJECTS, Project
 
+if TYPE_CHECKING:
+    from agridrone.data.sources import LockFile, Registry, Source
+
+#: Config commune aux deux projets (info, config, smoke).
 DEFAULT_CONFIG = "configs/base.yaml"
-DEFAULT_REGISTRY = "configs/data/sources.yaml"
-DEFAULT_LOCK = "configs/data/sources.lock.yaml"
-DEFAULT_LICENCES = "LICENCES_DONNEES.txt"
+#: Les commandes de préparation et d'entraînement existantes concernent le blé.
+BLE = PROJECTS["ble"]
 
 
 def _positive_int(text: str) -> int:
@@ -160,55 +166,91 @@ def _cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
-def _data_context(args: argparse.Namespace):  # type: ignore[no-untyped-def]
-    from agridrone.core.config import load_experiment
-    from agridrone.core.paths import resolve_path
+@dataclass
+class _DataContext:
+    """Ce qu'il faut pour traiter les sources d'un projet (blé ou olivier)."""
+
+    project: Project
+    registry: Registry
+    lock: LockFile
+    raw_dir: Path
+    interim_dir: Path
+
+
+def _data_contexts(args: argparse.Namespace) -> list[_DataContext]:
+    """Un contexte par projet demandé (``--project``, défaut : tous). ``-c`` et
+    ``--registry`` remplacent la config et le registre du projet (un seul projet)."""
+    from agridrone.core.config import ConfigError, load_experiment
+    from agridrone.core.paths import PROJECTS, resolve_path
     from agridrone.data.sources import LockFile, load_registry
 
-    cfg = load_experiment(resolve_path(args.config))
-    registry = load_registry(resolve_path(args.registry))
-    lock = LockFile(resolve_path(DEFAULT_LOCK))
-    return registry, lock, resolve_path(cfg.paths.raw), resolve_path(cfg.paths.interim)
+    names = [args.project] if args.project else list(PROJECTS)
+    if (args.config or getattr(args, "registry", None)) and len(names) > 1:
+        raise ConfigError("-c et --registry s'appliquent à un seul projet : ajoutez --project")
+    contexts = []
+    for name in names:
+        project = PROJECTS[name]
+        cfg = load_experiment(resolve_path(args.config or project.config))
+        contexts.append(
+            _DataContext(
+                project=project,
+                registry=load_registry(
+                    resolve_path(getattr(args, "registry", None) or project.registry)
+                ),
+                lock=LockFile(resolve_path(project.lock)),
+                raw_dir=resolve_path(cfg.paths.raw),
+                interim_dir=resolve_path(cfg.paths.interim),
+            )
+        )
+    return contexts
 
 
 def _cmd_data_list(args: argparse.Namespace) -> int:
-    registry, lock, raw_dir, _ = _data_context(args)
-    totals: dict[str, float] = {}
-    unknown: set[str] = set()
-    for source_id, src in registry.sources.items():
-        if args.project and src.project != args.project:
-            continue
-        sizes = [f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size") for f in src.files]
-        size = sum(s or 0 for s in sizes)
-        if src.downloadable:
-            totals[src.status] = totals.get(src.status, 0.0) + size
-            if None in sizes:
-                unknown.add(src.status)
-        present = all((raw_dir / source_id / f.name).exists() for f in src.files) and src.files
-        shown = (
-            "     — Go"
-            if not src.downloadable
-            else f"{size / 1e9:6.2f} Go"
-            if None not in sizes
-            else "     ? Go"
-        )
-        print(
-            f"{source_id:32s} {src.project:5s} {src.status:13s} {src.license:34s} "
-            f"{src.task:14s} {shown} {'téléchargé' if present else ''}"
-        )
-        if args.files:
-            shown_files = src.files if len(src.files) <= 20 else src.files[:3]
-            for f in shown_files:
-                known = f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size")
-                label = f"{f.name} (git, commit {f.commit[:12]})" if f.commit else f.name
-                print(f"    {label}  ({known / 1e9:.2f} Go)" if known else f"    {label}")
-                print(f"      {f.url}")
-            if len(shown_files) < len(src.files):
-                print(f"    ... {len(src.files)} fichiers, liste complète : {src.files_manifest}")
-    for status, total in totals.items():
-        note = " (+ tailles inconnues avant le premier téléchargement)" if status in unknown else ""
-        print(f"Total {status} : {total / 1e9:.2f} Go d'archives{note}")
-    print(f"Total téléchargé par défaut : {sum(totals.values()) / 1e9:.2f} Go d'archives")
+    for ctx in _data_contexts(args):
+        registry, lock, raw_dir = ctx.registry, ctx.lock, ctx.raw_dir
+        print(f"== Projet {ctx.project.title} ({ctx.project.registry}) -> {raw_dir}")
+        totals: dict[str, float] = {}
+        unknown: set[str] = set()
+        for source_id, src in registry.sources.items():
+            sizes = [
+                f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size") for f in src.files
+            ]
+            size = sum(s or 0 for s in sizes)
+            if src.downloadable:
+                totals[src.status] = totals.get(src.status, 0.0) + size
+                if None in sizes:
+                    unknown.add(src.status)
+            present = all((raw_dir / source_id / f.name).exists() for f in src.files) and src.files
+            shown = (
+                "     — Go"
+                if not src.downloadable
+                else f"{size / 1e9:6.2f} Go"
+                if None not in sizes
+                else "     ? Go"
+            )
+            print(
+                f"{source_id:34s} {src.status:13s} {src.license:34s} "
+                f"{src.task:14s} {shown} {'téléchargé' if present else ''}"
+            )
+            if args.files:
+                shown_files = src.files if len(src.files) <= 20 else src.files[:3]
+                for f in shown_files:
+                    known = f.size or (lock.get(f"{source_id}/{f.name}") or {}).get("size")
+                    label = f"{f.name} (git, commit {f.commit[:12]})" if f.commit else f.name
+                    print(f"    {label}  ({known / 1e9:.2f} Go)" if known else f"    {label}")
+                    print(f"      {f.url}")
+                if len(shown_files) < len(src.files):
+                    print(
+                        f"    ... {len(src.files)} fichiers, liste complète : {src.files_manifest}"
+                    )
+        for status, total in totals.items():
+            note = (
+                " (+ tailles inconnues avant le premier téléchargement)"
+                if status in unknown
+                else ""
+            )
+            print(f"Total {status} : {total / 1e9:.2f} Go d'archives{note}")
+        print(f"Total téléchargé par défaut : {sum(totals.values()) / 1e9:.2f} Go d'archives\n")
     return 0
 
 
@@ -216,76 +258,98 @@ def _cmd_data_licences(args: argparse.Namespace) -> int:
     from agridrone.core.paths import resolve_path
     from agridrone.data.sources import licence_report
 
-    registry, lock, _, _ = _data_context(args)
-    out = resolve_path(args.out)
-    out.write_text(licence_report(registry, lock), encoding="utf-8")
-    print(f"Statuts et licences écrits dans {out}")
+    for ctx in _data_contexts(args):
+        out = resolve_path(ctx.project.licences)
+        out.write_text(licence_report(ctx.registry, ctx.project, ctx.lock), encoding="utf-8")
+        print(f"Projet {ctx.project.title} : statuts et licences écrits dans {out}")
     return 0
 
 
-def _check_disk_space(selected: dict[str, Source], raw_dir: Path, lock: LockFile) -> str | None:
-    """Message d'erreur si les archives restant à télécharger dépassent l'espace libre."""
+def _check_disk_space(plan: list[tuple[_DataContext, dict[str, Source]]]) -> str | None:
+    """Message d'erreur si les archives restant à télécharger dépassent l'espace libre
+    d'un disque (les projets dont les données sont sur le même disque s'additionnent)."""
+    import os
     import shutil
 
     from agridrone.data.sources import pending_bytes
 
-    pending = {sid: pending_bytes(sid, src, raw_dir, lock) for sid, src in selected.items()}
-    needed = sum(v or 0 for v in pending.values())
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    free = shutil.disk_usage(raw_dir).free
-    if needed <= 0.95 * free:
-        return None
-    biggest = sorted(((v or 0, k) for k, v in pending.items()), reverse=True)[:8]
-    lines = [
-        f"Espace disque insuffisant dans {raw_dir} : {needed / 1e9:.1f} Go d'archives à "
-        f"télécharger (sans compter l'extraction), {free / 1e9:.1f} Go libres.",
-        "Plus gros jeux restants :",
-        *(f"  {sid:34s} {size / 1e9:7.1f} Go" for size, sid in biggest if size),
-        "Libérer de la place, changer de disque (paths.raw dans une config locale, voir le "
-        "README), ou télécharger une partie : --project wheat|olive, ou des identifiants.",
-    ]
-    return "\n".join(lines)
+    par_disque: dict[int, tuple[Path, dict[str, int | None]]] = {}
+    for ctx, selected in plan:
+        ctx.raw_dir.mkdir(parents=True, exist_ok=True)
+        _, pending = par_disque.setdefault(os.stat(ctx.raw_dir).st_dev, (ctx.raw_dir, {}))
+        pending.update(
+            {sid: pending_bytes(sid, src, ctx.raw_dir, ctx.lock) for sid, src in selected.items()}
+        )
+    for raw_dir, pending in par_disque.values():
+        needed = sum(v or 0 for v in pending.values())
+        free = shutil.disk_usage(raw_dir).free
+        if needed <= 0.95 * free:
+            continue
+        biggest = sorted(((v or 0, k) for k, v in pending.items()), reverse=True)[:8]
+        lines = [
+            f"Espace disque insuffisant dans {raw_dir} : {needed / 1e9:.1f} Go d'archives à "
+            f"télécharger (sans compter l'extraction), {free / 1e9:.1f} Go libres.",
+            "Plus gros jeux restants :",
+            *(f"  {sid:34s} {size / 1e9:7.1f} Go" for size, sid in biggest if size),
+            "Libérer de la place, changer de disque (paths.raw dans une config locale, voir le "
+            "README), ou télécharger une partie : --project ble|olivier, ou des identifiants.",
+        ]
+        return "\n".join(lines)
+    return None
 
 
 def _cmd_data_download(args: argparse.Namespace) -> int:
+    from agridrone.core.config import ConfigError
     from agridrone.data.sources import fetch_source
 
-    registry, lock, raw_dir, interim_dir = _data_context(args)
-    lock.prune(registry)
-    failures: dict[str, str] = {}
-    selected = registry.selected(args.ids, args.project)
-    problem = _check_disk_space(selected, raw_dir, lock)
+    contexts = _data_contexts(args)
+    if args.ids:
+        connus = {sid for ctx in contexts for sid in ctx.registry.sources}
+        inconnus = [i for i in args.ids if i not in connus]
+        if inconnus:
+            raise ConfigError(f"Sources inconnues : {', '.join(inconnus)}")
+    plan = []
+    for ctx in contexts:
+        ctx.lock.prune(ctx.registry)
+        ids = [i for i in args.ids if i in ctx.registry.sources] if args.ids else None
+        if args.ids and not ids:
+            continue
+        plan.append((ctx, ctx.registry.selected(ids)))
+    problem = _check_disk_space(plan)
     if problem:
         print(problem, file=sys.stderr)
         return 1
-    for source_id, src in selected.items():
-        print(f"[{source_id}] {src.title} ({src.license}, {src.status})", flush=True)
-        if src.terms:
-            print(f"   conditions d'utilisation : {src.terms}", flush=True)
-        try:
-            results = fetch_source(
-                source_id,
-                src,
-                raw_dir,
-                interim_dir,
-                lock,
-                extract=not args.no_extract,
-                progress=True,
-            )
-        except Exception as exc:  # une source en échec ne bloque pas les suivantes
-            failures[source_id] = f"{type(exc).__name__}: {exc}"
-            print(f"   ÉCHEC : {failures[source_id]}", file=sys.stderr, flush=True)
-            continue
-        if len(results) > 20:  # milliers de petits fichiers : un résumé suffit
-            counts = {s: sum(r.status == s for r in results) for s in ("downloaded", "present")}
-            total = sum(r.digests.size for r in results) / 1e9
-            print(
-                f"   {len(results)} fichiers ({counts['downloaded']} téléchargés, "
-                f"{counts['present']} déjà présents), {total:.2f} Go"
-            )
-        for r in results if len(results) <= 20 else []:
-            digest, size_mb = r.digests.sha256[:16], r.digests.size / 1e6
-            print(f"   {r.status:10s} {r.path.name}  sha256={digest}…  {size_mb:.1f} Mo")
+    failures: dict[str, str] = {}
+    for ctx, selected in plan:
+        print(f"== Projet {ctx.project.title} -> {ctx.raw_dir}", flush=True)
+        for source_id, src in selected.items():
+            print(f"[{source_id}] {src.title} ({src.license}, {src.status})", flush=True)
+            if src.terms:
+                print(f"   conditions d'utilisation : {src.terms}", flush=True)
+            try:
+                results = fetch_source(
+                    source_id,
+                    src,
+                    ctx.raw_dir,
+                    ctx.interim_dir,
+                    ctx.lock,
+                    extract=not args.no_extract,
+                    progress=True,
+                )
+            except Exception as exc:  # une source en échec ne bloque pas les suivantes
+                failures[source_id] = f"{type(exc).__name__}: {exc}"
+                print(f"   ÉCHEC : {failures[source_id]}", file=sys.stderr, flush=True)
+                continue
+            if len(results) > 20:  # milliers de petits fichiers : un résumé suffit
+                counts = {s: sum(r.status == s for r in results) for s in ("downloaded", "present")}
+                total = sum(r.digests.size for r in results) / 1e9
+                print(
+                    f"   {len(results)} fichiers ({counts['downloaded']} téléchargés, "
+                    f"{counts['present']} déjà présents), {total:.2f} Go"
+                )
+            for r in results if len(results) <= 20 else []:
+                digest, size_mb = r.digests.sha256[:16], r.digests.size / 1e6
+                print(f"   {r.status:10s} {r.path.name}  sha256={digest}…  {size_mb:.1f} Mo")
     if failures:
         print(f"{len(failures)} source(s) en échec : {', '.join(failures)}", file=sys.stderr)
         return 1
@@ -300,26 +364,27 @@ def _cmd_data_verify(args: argparse.Namespace) -> int:
         git_checkout_present,
     )
 
-    registry, lock, raw_dir, _ = _data_context(args)
     failures = 0
-    for source_id, src in registry.sources.items():
-        ok = 0
-        for f in src.files:
-            path = raw_dir / source_id / f.name
-            if not path.exists():
-                continue
-            try:
-                if f.commit is not None:
-                    if not git_checkout_present(path, f.commit):
-                        raise IntegrityError(f"{f.name} : commit différent de {f.commit}")
-                else:
-                    check_digests(file_digests(path), f, lock.get(f"{source_id}/{f.name}"))
-                ok += 1
-            except IntegrityError as exc:
-                failures += 1
-                print(f"ÉCHEC   {source_id} : {exc}")
-        if ok:
-            print(f"OK      {source_id} ({ok} fichier(s))")
+    for ctx in _data_contexts(args):
+        print(f"== Projet {ctx.project.title} ({ctx.raw_dir})")
+        for source_id, src in ctx.registry.sources.items():
+            ok = 0
+            for f in src.files:
+                path = ctx.raw_dir / source_id / f.name
+                if not path.exists():
+                    continue
+                try:
+                    if f.commit is not None:
+                        if not git_checkout_present(path, f.commit):
+                            raise IntegrityError(f"{f.name} : commit différent de {f.commit}")
+                    else:
+                        check_digests(file_digests(path), f, ctx.lock.get(f"{source_id}/{f.name}"))
+                    ok += 1
+                except IntegrityError as exc:
+                    failures += 1
+                    print(f"ÉCHEC   {source_id} : {exc}")
+            if ok:
+                print(f"OK      {source_id} ({ok} fichier(s))")
     return 1 if failures else 0
 
 
@@ -339,7 +404,7 @@ def _cmd_data_prepare_classification(args: argparse.Namespace) -> int:
     registry = load_registry(resolve_path(args.registry))
     statuses = {k: v.status for k, v in registry.sources.items()}
     for note in training_source_notes(data_cfg, statuses):
-        print(f"Remarque : {note} (voir LICENCES_DONNEES.txt)")
+        print(f"Remarque : {note} (voir {BLE.licences})")
     out_dir = resolve_path(cfg.paths.processed) / data_cfg.name
     df = prepare_classification(data_cfg, resolve_path(cfg.paths.interim), out_dir)
     summary = summarize(df)
@@ -388,13 +453,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=_cmd_train)
 
     p = sub.add_parser("evaluate", help="réévalue le meilleur modèle d'un run")
-    p.add_argument("--run", required=True, help="dossier du run (runs/<tâche>/<run>)")
+    p.add_argument("--run", required=True, help="dossier du run (runs/<projet>/<tâche>/<run>)")
     p.add_argument("--out", help="dossier des résultats (défaut : <run>/eval-<date>)")
     p.add_argument("overrides", nargs="*", help="surcharges, ex. eval.target_coverage=0.8")
     p.set_defaults(func=_cmd_evaluate)
 
     p = sub.add_parser("export", help="export ONNX + vérification + temps d'inférence")
-    p.add_argument("--run", required=True, help="dossier du run (runs/<tâche>/<run>)")
+    p.add_argument("--run", required=True, help="dossier du run (runs/<projet>/<tâche>/<run>)")
     p.add_argument("--out", help="dossier de sortie (défaut : <run>/export)")
     p.add_argument("--repeat", type=_positive_int, default=20, help="mesures par configuration")
     p.add_argument("--no-benchmark", action="store_true", help="exporter sans chronométrer")
@@ -406,18 +471,17 @@ def build_parser() -> argparse.ArgumentParser:
         ("list", _cmd_data_list, "sources du registre"),
         ("download", _cmd_data_download, "télécharge, vérifie et extrait"),
         ("verify", _cmd_data_verify, "revérifie les fichiers téléchargés"),
-        ("licences", _cmd_data_licences, f"écrit {DEFAULT_LICENCES} (statuts, licences)"),
+        ("licences", _cmd_data_licences, "écrit <projet>/LICENCES_DONNEES.txt (statuts, licences)"),
     ):
         p = data_sub.add_parser(name, help=help_)
-        p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
-        p.add_argument("--registry", default=DEFAULT_REGISTRY, help="registre des sources")
+        p.add_argument(
+            "--project", choices=list(PROJECTS), help="ble ou olivier (défaut : les deux)"
+        )
+        p.add_argument(
+            "-c", "--config", help="config (chemins) ; défaut : <projet>/configs/base.yaml"
+        )
+        p.add_argument("--registry", help="registre ; défaut : <projet>/configs/data/sources.yaml")
         p.set_defaults(func=func)
-        if name in {"list", "download"}:
-            p.add_argument(
-                "--project", choices=["wheat", "olive"], help="blé ou olivier (défaut : les deux)"
-            )
-        if name == "licences":
-            p.add_argument("--out", default=DEFAULT_LICENCES, help="fichier texte à écrire")
         if name == "list":
             p.add_argument("--files", action="store_true", help="liens directs de chaque fichier")
         if name == "download":
@@ -426,14 +490,16 @@ def build_parser() -> argparse.ArgumentParser:
             # les anciennes commandes (rapports, notes) fonctionnent encore.
             p.add_argument("--include-candidates", action="store_true", help=argparse.SUPPRESS)
             p.add_argument("--no-extract", action="store_true", help="ne pas extraire les archives")
-    p = data_sub.add_parser("prepare-classification", help="jeu « dossiers par classe »")
-    p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
-    p.add_argument("--data-config", default="configs/data/classification.yaml")
-    p.add_argument("--registry", default=DEFAULT_REGISTRY, help="registre des sources")
+    p = data_sub.add_parser("prepare-classification", help="blé : jeu « dossiers par classe »")
+    p.add_argument("-c", "--config", default=BLE.config, help="config (chemins)")
+    p.add_argument("--data-config", default="ble/configs/data/classification.yaml")
+    p.add_argument("--registry", default=BLE.registry, help="registre des sources")
     p.set_defaults(func=_cmd_data_prepare_classification)
-    p = data_sub.add_parser("prepare-segmentation", help="jeux multispectraux N bandes + tuilage")
-    p.add_argument("-c", "--config", default=DEFAULT_CONFIG, help="config (chemins)")
-    p.add_argument("--data-config", default="configs/data/segmentation.yaml")
+    p = data_sub.add_parser(
+        "prepare-segmentation", help="blé : jeux multispectraux N bandes + tuilage"
+    )
+    p.add_argument("-c", "--config", default=BLE.config, help="config (chemins)")
+    p.add_argument("--data-config", default="ble/configs/data/segmentation.yaml")
     p.set_defaults(func=_cmd_data_prepare_segmentation)
     return parser
 

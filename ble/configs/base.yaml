@@ -1,0 +1,13 @@
+# Configuration commune au projet BLÉ : dossiers des données et des runs.
+# Héritée par les configs de ble/configs/ (classification/, segmentation/) ; elle-même
+# hérite de la configuration commune aux deux projets (configs/base.yaml).
+_base_: ../../configs/base.yaml
+
+paths:
+  raw: data/ble/raw
+  interim: data/ble/interim
+  processed: data/ble/processed
+  runs: runs/ble
+
+tracking:
+  experiment: agridrone-ble

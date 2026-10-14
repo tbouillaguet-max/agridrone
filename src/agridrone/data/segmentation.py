@@ -1,6 +1,6 @@
 """Jeux de segmentation multispectrale au format unifié, et tuilage d'orthophotos.
 
-Format de sortie (``data/processed/segmentation/<jeu>/``) :
+Format de sortie (``data/ble/processed/segmentation/<jeu>/``) :
 
 * ``images/<échantillon>.npy`` : float32 (C, H, W), bandes dans l'ordre de
   ``dataset.json["bands"]`` (noms, voir ``agridrone.data.bands``) ;

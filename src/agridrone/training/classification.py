@@ -62,7 +62,7 @@ from agridrone.training.common import (
 
 class ClassificationData(StrictModel):
     #: Dossier du jeu préparé (contient ``manifest.csv``), relatif à la racine du projet.
-    dir: Path = Path("data/processed/classification")
+    dir: Path = Path("data/ble/processed/classification")
     #: Ordre = ordre des sorties du modèle.
     classes: list[str] = Field(min_length=2)
     healthy_class: str = "healthy"

@@ -11,6 +11,8 @@ deterministic: false
 device: auto          # auto (CUDA > MPS > CPU) | cpu | mps | cuda | cuda:N
 num_workers: 4
 
+# Chemins par défaut : chaque projet les remplace (ble/configs/base.yaml -> data/ble/,
+# olivier/configs/base.yaml -> data/olivier/).
 paths:
   raw: data/raw
   interim: data/interim
