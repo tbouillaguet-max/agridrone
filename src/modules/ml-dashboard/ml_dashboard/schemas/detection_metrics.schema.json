@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ml_dashboard/detection_metrics.schema.json",
+  "title": "detection/metrics.json — métriques finales détection/segmentation (schema_version 1)",
+  "type": "object",
+  "required": ["schema_version", "split", "box", "per_class"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 1},
+    "split": {"enum": ["val", "test"]},
+    "box": {"$ref": "#/$defs/summary"},
+    "mask": {"type": ["object", "null"], "description": "Mêmes clés que box ; segmentation uniquement."},
+    "per_class": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["class", "precision", "recall", "map50", "map50_95"],
+        "additionalProperties": true,
+        "properties": {
+          "class": {"type": "string"},
+          "n_images": {"type": ["integer", "null"], "minimum": 0},
+          "n_instances": {"type": ["integer", "null"], "minimum": 0},
+          "precision": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "recall": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "map50": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "map50_95": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "summary": {
+      "type": "object",
+      "required": ["precision", "recall", "map50", "map50_95"],
+      "additionalProperties": true,
+      "properties": {
+        "precision": {"type": "number", "minimum": 0, "maximum": 1},
+        "recall": {"type": "number", "minimum": 0, "maximum": 1},
+        "map50": {"type": "number", "minimum": 0, "maximum": 1},
+        "map50_95": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

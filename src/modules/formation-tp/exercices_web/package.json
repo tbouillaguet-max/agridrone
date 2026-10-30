@@ -1,0 +1,11 @@
+{
+  "name": "tp-exercices-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Exercices web du TP (étapes 4 et 5). Aucune dépendance : Node 20 ou plus suffit.",
+  "type": "module",
+  "scripts": {
+    "test": "node lancer_tests.mjs",
+    "test:corrections": "node lancer_tests.mjs --corrections"
+  }
+}

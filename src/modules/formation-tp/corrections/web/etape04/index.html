@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TP étape 4 — carte et tracé (correction)</title>
+  <!-- Leaflet du planificateur (le serveur doit servir la racine du dépôt : voir tp/exercices_web/lancer.*) -->
+  <link rel="stylesheet" href="/planificateur/lib/leaflet/leaflet.css">
+  <script src="/planificateur/lib/leaflet/leaflet.js"></script>
+  <script type="module" src="./carte.mjs"></script>
+  <style>
+    body { margin: 0; font: 15px system-ui, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    header { display: flex; gap: 8px; align-items: center; padding: 8px; background: #1b7f3b; color: white; flex-wrap: wrap; }
+    header h1 { font-size: 18px; margin: 0 12px 0 0; }
+    button { font: inherit; padding: 6px 10px; }
+    #carte { flex: 1; }
+    #bilan { padding: 8px; background: #f3f6ef; min-height: 3em; }
+    #message { font-style: italic; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Étape 4 — correction</h1>
+    <button id="btn-limites">Tracer les limites</button>
+    <button id="btn-zone">Ajouter une zone interdite</button>
+    <button id="btn-terminer">Terminer le tracé</button>
+    <button id="btn-effacer">Tout effacer</button>
+    <span id="message"></span>
+  </header>
+  <div id="carte"></div>
+  <div id="bilan"></div>
+</body>
+</html>

@@ -1,0 +1,298 @@
+{
+  "version": 1,
+  "nom": "Exemple — parcelle de blé (Beauce)",
+  "creeLe": "2026-10-09T12:00:00.000Z",
+  "modifieLe": "2026-10-09T12:00:00.000Z",
+  "idMission": 1,
+  "culture": "ble",
+  "limites": [
+    [
+      48.301,
+      1.603
+    ],
+    [
+      48.300946,
+      1.6040109
+    ],
+    [
+      48.3014317,
+      1.6041053
+    ],
+    [
+      48.3014946,
+      1.6030809
+    ]
+  ],
+  "zones": [
+    [
+      [
+        48.3011799,
+        1.6034583
+      ],
+      [
+        48.3011799,
+        1.6035931
+      ],
+      [
+        48.3012698,
+        1.6035931
+      ],
+      [
+        48.3012698,
+        1.6034583
+      ]
+    ]
+  ],
+  "depart": [
+    48.300964,
+    1.6028922
+  ],
+  "mode": "auto",
+  "parametres": {
+    "altitudeM": 10,
+    "vitesseMaxMs": 0,
+    "recouvrementFrontalPct": 75,
+    "recouvrementLateralPct": 65,
+    "capPassesDeg": null,
+    "margeLimitesM": 2,
+    "margeZonesM": 3,
+    "grandCoteTransversal": true,
+    "finMission": "retour",
+    "vitesseManuelleMs": 2
+  },
+  "camera": {
+    "capteurLargeurMm": 7.2,
+    "capteurHauteurMm": 5.4,
+    "focaleMm": 5.4,
+    "imageLargeurPx": 4000,
+    "imageHauteurPx": 3000,
+    "intervalleMinS": 0.7,
+    "expositionMinUs": 100
+  },
+  "waypoints": [
+    {
+      "lat": 48.301058,
+      "lon": 1.6030366,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3010068,
+      "lon": 1.6039955,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3010485,
+      "lon": 1.6040036,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3010998,
+      "lon": 1.6030434,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3011415,
+      "lon": 1.6030503,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3010902,
+      "lon": 1.6040117,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3011318,
+      "lon": 1.6040198,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.301154,
+      "lon": 1.6036045,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3011484,
+      "lon": 1.6036403,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 0
+    },
+    {
+      "lat": 48.3011946,
+      "lon": 1.6036335,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3011735,
+      "lon": 1.6040279,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3012152,
+      "lon": 1.604036,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3012367,
+      "lon": 1.6036335,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3013013,
+      "lon": 1.6036403,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 0
+    },
+    {
+      "lat": 48.3012789,
+      "lon": 1.6036312,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3012568,
+      "lon": 1.6040441,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3012985,
+      "lon": 1.6040522,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3013502,
+      "lon": 1.6030844,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3013919,
+      "lon": 1.6030912,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3013402,
+      "lon": 1.6040603,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3013818,
+      "lon": 1.6040684,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3014337,
+      "lon": 1.6030981,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3013085,
+      "lon": 1.6030776,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3012896,
+      "lon": 1.6034308,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3013013,
+      "lon": 1.6034111,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 0
+    },
+    {
+      "lat": 48.3012482,
+      "lon": 1.6034179,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3012667,
+      "lon": 1.6030707,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.301225,
+      "lon": 1.6030639,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3012061,
+      "lon": 1.6034179,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    },
+    {
+      "lat": 48.3011484,
+      "lon": 1.6034111,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 0
+    },
+    {
+      "lat": 48.3011635,
+      "lon": 1.6034261,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 1
+    },
+    {
+      "lat": 48.3011833,
+      "lon": 1.6030571,
+      "altitudeM": 10,
+      "vitesseMs": 3,
+      "action": 2
+    }
+  ]
+}

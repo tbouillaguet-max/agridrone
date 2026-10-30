@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "_aide": "Registre de DÉMONSTRATION : modèle factice (part de pixels bruns) pour tester le pipeline sans modèle entraîné. Résultats sans valeur agronomique.",
+  "cultures": {
+    "ble":     { "type": "factice", "description": "Modèle factice (démonstration)", "seuil": 0.5, "tuiles": { "taille_px": 200 } },
+    "mais":    { "type": "factice", "description": "Modèle factice (démonstration)", "seuil": 0.5, "tuiles": { "taille_px": 200 } },
+    "pommier": { "type": "factice", "description": "Modèle factice (démonstration)", "seuil": 0.5, "tuiles": { "taille_px": 200 } }
+  }
+}

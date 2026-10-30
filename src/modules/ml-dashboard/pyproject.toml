@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ml_dashboard"
+version = "0.1.0"
+description = "Standard de run ML, RunLogger, adaptateurs et dashboard Streamlit"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyyaml",
+    "scikit-learn",
+    "plotly",
+    "streamlit",
+    "Pillow",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+ml-dashboard = "ml_dashboard.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ml_dashboard*"]
+
+[tool.setuptools.package-data]
+"ml_dashboard.schemas" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "ml_dashboard"]
+addopts = "--doctest-modules -q"

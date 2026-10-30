@@ -1,0 +1,8 @@
+source,url,licence,type,n_images,annotations,classes_origin,notes
+Cornell NLB drone,https://ngdc.cncb.ac.cn/opia/dataset/datasets?dataId=38 | https://osf.io/p67rz/,CC0 selon la Data Note (BMC Res Notes 2018, 'unless otherwise stated'); a reconfirmer sur la page OSF,drone RGB 6m nadir,7669,42117 lesions (lignes/splines),NLB,Essais inocules; annotation probablement partielle; echantillon seulement (~50 Go)
+KaraAgro AI Maize,https://doi.org/10.7910/DVN/CXUMDS,CC0 1.0,champ,16552,92934 boites,"streak, FAW damage/frass/larva/egg, healthy, none healthy, healthy images",31 Go format Supervisely; doublons Roboflow probables
+Makerere Maize,https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/LPGHKK,CC0 1.0,smartphone,15821,boites ~image entiere (10495 obj),"healthy 5326, mlb 5279, msv 5216",12 Go
+MLD Bangladesh,https://doi.org/10.17632/3myfctrgk3.1,CC BY 4.0,smartphone 640x480,1996,format ?,"blight 489, FAW 525, gray spot 555, healthy 427",collecte fev 2026
+PlantDoc,https://github.com/pratikkayal/PlantDoc-Object-Detection-Dataset,CC BY 4.0,images web,~2500-2600,boites,"corn blight 186, rust 112, gray leaf spot",appoint
+IIITDMJ_Maize,https://doi.org/10.21227/jrw1-md38,?,drone (frames video) 224x224,416,etiquettes image,"rust, NLB, GLS, healthy",abonnement IEEE DataPort requis; ecole sans abonnement => exclu
+PlantVillage maize,https://github.com/spMohanty/PlantVillage-Dataset,?,labo 256x256,3852,etiquettes image,4 classes,exclu val/test

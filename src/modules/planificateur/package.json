@@ -1,0 +1,10 @@
+{
+  "name": "planificateur-agridrone",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Planificateur de mission du drone agricole (page web, Chrome sur PC). Aucune dépendance : npm n'est utile que pour lancer les tests.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\""
+  }
+}

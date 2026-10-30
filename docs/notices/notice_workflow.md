@@ -1,0 +1,29 @@
+# Notice — Workflow global du drone agricole
+
+| # | Module | Où | Entrées | Sorties | Notice |
+|---|---|---|---|---|---|
+| 1 | Planificateur de mission | `src\modules\planificateur` | saisie, carte | trames de mission → AU2 ; `data\missions\mission_<id>.json` (avec `culture`) | `notice_planificateur.md` |
+| 2 | Protocole commun + AU2/AU1 | `src\modules\protocole` (+ programme de vol, autre dépôt) | mission ; capteurs ; ordres LoRa | photos ; `photos.csv` ; `boite_noire.csv` | `notice_protocole_au2.md` |
+| 3 | Transfert Wi-Fi | **TO DO** (module à choisir) | dossier du vol sur la SD d'AU2 + photos de la caméra | `data\vols\entrant\<vol>\` (`images\`, `photos.csv`, `boite_noire.csv`) | — |
+| 4 | Entraînement des modèles | `src\modules\detection-mais`, `apple-detection`, `runs`, `ml_dashboard` (0.3.0 : standard, RunLogger, adaptateurs PyTorch / Ultralytics / sklearn) | datasets | runs au standard `ml_dashboard` v1 (`data\runs\<projet>\<run_id>\`) → modèles ONNX + `modeles.json` | `Notice — ml_dashboard livrable 1 (standard et validation).md`, `notice_ml_dashboard_livrable2_runlogger.md`, `notice_ml_dashboard_livrable3_adaptateurs.md`, `notice_apple_preparation_donnees.md` |
+| 4a | Pommier — préparation des données (notebook 01) | `src\modules\detection-pommier\notebooks\01_preparation_donnees` (Kaggle, CPU) | AppleLeaf9, FGVC8 « healthy » (Input Kaggle), PlantDoc, GYMNSA | `apple_prep\` : `cls\{train,val,test,test_externe}\{SAIN,MALADE}`, `drone\`, `manifest.csv`, `classes.json` | `notice_apple_preparation_donnees.md` |
+| 5 | Pipeline d'analyse (**v1.1.0** : localisation v2) | `src\modules\pipeline-analyse` | dossier du vol, mission archivée (dont `camera`), registre `pipeline\modeles.json` | `data\vols\<date>_<id>\` : `rapport.html`, `resultats\` (images.csv, detections.csv, zones_malades.geojson), `a_relabelliser\`, `brut\` | `notice_pipeline_analyse_images.md` |
+
+## Contrats entre modules
+- 1 → 5 : `mission_<id>.json`, JSON v1, `culture` ∈ {ble, mais, pommier} (liste identique dans `config.js`, `serveur_local.py`, `pipeline\modeles.json`, `pipeline\analyse\contrat.py`). `camera` {`capteurLargeurMm`, `capteurHauteurMm`, `focaleMm`} sert à la localisation v2 du pipeline. **Écart :** le planificateur n'écrit pas `camera.provisoire` dans `mission.json` (`cameraProvisoire` reste dans `config.js`). Le pipeline considère donc la caméra comme provisoire et l'avertit à chaque vol, jusqu'à ce que la mission porte `"provisoire": false`.
+- 2 → 5 : `photos.csv` (colonnes exactes, inchangées ; `cap_deg` et `altitude_rel_m` utilisés par la v2 : haut de l'image = avant du drone = cap, caméra visée verticale) ; `boite_noire.csv` (facultatif en v1 : avertissement si absent, arrêt si non conforme ; copie dans `brut\` ; CRITIQUE/URGENCE dans le rapport ; `MISSION_CHARGEE` « mission N, W waypoints » sert au choix de la mission).
+- 1 ↔ 2 : protocole v1, câble USB, 115 200 bauds ; refus si drone armé.
+- 4 (interne) : framework (PyTorch / Ultralytics / sklearn) → adaptateur → RunLogger → dossier de run v1, vérifié par `python -m ml_dashboard validate` ; classes du `data.yaml` = classes du run (sinon arrêt avant la 1re époque) ; sur Kaggle, archive `<projet>__<run_id>.zip` → `python -m ml_dashboard import` (livrable 4).
+- 4a → entraînement pommier (notebook 02, à écrire) : classes de `classes.json` (`SAIN`, `MALADE`, positive `MALADE`, single) passées telles quelles à `RunLogger.start` ; `manifest.id` comme ids, `sous_source` comme groups ; métriques rapportées par sous-source et sur `test_externe`.
+- 4 → 5 : ONNX exécutable sur CPU + entrée dans `pipeline\modeles.json`. **Format fixé par le pipeline** (notice du pipeline § E4) : `{"version": 1, "cultures": {culture: {type, onnx, classes, classe_malade | classes_malades, seuil, entree {…}, tuiles {…}}}}`, types `classification`, `detection` (YOLOv8/v11), `deux_etages`. L'export prévu de ml_dashboard doit écrire ce format (pas un simple `{culture: {type, onnx, classes, seuil}}`), sinon le pipeline s'arrête avec une erreur « registre des modèles ». Pour un modèle entraîné sur des images carrées à bandes grises (pommier, notebook 01), l'export doit écrire `entree.redimensionnement: "letterbox"`, `couleur_bandes: 114` et `jpeg_qualite: 75`. État actuel : `a_definir` pour les trois cultures.
+- Contrôle croisé 2 ↔ 5 : le vol de démonstration du pipeline (`pipeline\outils\creer_vol_demo.py`, images orientées selon le cap) passe `protocole\outils\verifier_fichiers_vol.py`.
+
+## Points ouverts
+- Modèle de caméra programmable (paramètres du planificateur, interface d'AU2, puis `camera.provisoire: false` dans la mission ; calibration de la distorsion pour la v2 du pipeline).
+- Planificateur : recopier `cameraProvisoire` dans `mission.json` (`camera.provisoire`).
+- Module Wi-Fi, puis lancement automatique du pipeline en fin de transfert.
+- Export 4 → 5 : commande `python -m ml_dashboard export <run> --culture <ble|mais|pommier>` (ONNX + mise à jour de `pipeline\modeles.json` au format du pipeline, avec `classe_malade` / `classes_malades` et `entree.redimensionnement` choisis à l'export), prévue au livrable 4 de ml_dashboard.
+- Pommier `deux_etages` : le notebook 01 prépare le **classifieur** de feuilles. Il manque les données et le modèle de l'**extracteur de feuilles** sur image de drone. ~~Letterbox des feuilles découpées~~ : réglé dans le pipeline v1.1.0 (`entree.redimensionnement: "letterbox"`, `couleur_bandes`, `jpeg_qualite`).
+- Envoi du rapport ; prise en charge RT-DETR dans le pipeline si ce modèle est retenu (ml_dashboard sait déjà l'enregistrer, mais ne l'exportera vers le pipeline qu'une fois ce type accepté).
+- Roulis et tangage au moment de la photo absents de `photos.csv` : la v2 suppose une visée verticale (à revoir si la nacelle n'est pas stabilisée).
+- ~~Mission archivée avec suffixe~~ : réglé dans le pipeline (filtre waypoints, boîte noire, puis `modifieLe` ; sinon option `--mission`).

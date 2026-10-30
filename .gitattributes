@@ -1,0 +1,4 @@
+# Fins de ligne : les scripts Windows en CRLF, les scripts Unix en LF.
+*.bat text eol=crlf
+*.sh text eol=lf
+*.png binary

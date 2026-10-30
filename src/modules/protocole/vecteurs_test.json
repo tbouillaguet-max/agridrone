@@ -1,0 +1,376 @@
+{
+  "description": "Vecteurs de test du protocole commun v1 (générés par protocole/outils/generer_vecteurs.py). Ne pas modifier à la main.",
+  "crc": [
+    {
+      "ascii": "123456789",
+      "crc": 10673
+    },
+    {
+      "ascii": "",
+      "crc": 65535
+    }
+  ],
+  "trames": [
+    {
+      "nom": "heartbeat_au1",
+      "type": 1,
+      "sequence": 1,
+      "champs": {
+        "emetteur": 5,
+        "etat": 3,
+        "temps_ms": 123456
+      },
+      "donnees_hex": "050340e20100",
+      "hex": "aa550101010006050340e201002a17"
+    },
+    {
+      "nom": "heartbeat_au2",
+      "type": 1,
+      "sequence": 2,
+      "champs": {
+        "emetteur": 0,
+        "etat": 77,
+        "temps_ms": 987654
+      },
+      "donnees_hex": "004d06120f00",
+      "hex": "aa550101020006004d06120f00f72e"
+    },
+    {
+      "nom": "ack_arret_urgence",
+      "type": 2,
+      "sequence": 300,
+      "champs": {
+        "type_acquitte": 36,
+        "sequence_acquittee": 17
+      },
+      "donnees_hex": "241100",
+      "hex": "aa5501022c01032411002c73"
+    },
+    {
+      "nom": "nack_etat",
+      "type": 3,
+      "sequence": 301,
+      "champs": {
+        "type_refuse": 64,
+        "sequence_refusee": 18,
+        "code": 3
+      },
+      "donnees_hex": "40120003",
+      "hex": "aa5501032d0104401200038200"
+    },
+    {
+      "nom": "telemetrie",
+      "type": 16,
+      "sequence": 42,
+      "champs": {
+        "temps_ms": 987654,
+        "roulis_cdeg": -1234,
+        "tangage_cdeg": 567,
+        "lacet_cdeg": 35999,
+        "latitude_e7": 488566100,
+        "longitude_e7": 23522200,
+        "altitude_msl_cm": 3550,
+        "altitude_relative_cm": 1200,
+        "vitesse_sol_cms": 350,
+        "vitesse_verticale_cms": -25,
+        "route_cdeg": 9000,
+        "tension_batterie_mv": 15200,
+        "courant_batterie_ca": 1250,
+        "batterie_pct": 76,
+        "mode_vol": 4,
+        "etat_gps": 3,
+        "nb_satellites": 14,
+        "hdop_x100": 85,
+        "drapeaux": 79,
+        "waypoint_courant": 3,
+        "photos_declenchees": 27
+      },
+      "donnees_hex": "06120f002efb37029f8c54ed1e1d98eb6601de0d0000b00400005e01e7ff2823603be2044c04030e55004f03001b00",
+      "hex": "aa5501102a002f06120f002efb37029f8c54ed1e1d98eb6601de0d0000b00400005e01e7ff2823603be2044c04030e55004f03001b00136c"
+    },
+    {
+      "nom": "alerte_perte_au2",
+      "type": 17,
+      "sequence": 43,
+      "champs": {
+        "code": 14,
+        "gravite": 3,
+        "source": 5,
+        "action": 3,
+        "valeur": 0,
+        "actif": 1
+      },
+      "donnees_hex": "0e030503000001",
+      "hex": "aa5501112b00070e030503000001ab5b"
+    },
+    {
+      "nom": "commande_mode",
+      "type": 32,
+      "sequence": 65535,
+      "champs": {
+        "mode_vol": 4
+      },
+      "donnees_hex": "04",
+      "hex": "aa550120ffff010471b4"
+    },
+    {
+      "nom": "commande_manuelle",
+      "type": 33,
+      "sequence": 12,
+      "champs": {
+        "roulis": -1000,
+        "tangage": 500,
+        "lacet": 0,
+        "gaz": 1000
+      },
+      "donnees_hex": "18fcf4010000e803",
+      "hex": "aa5501210c000818fcf4010000e8032510"
+    },
+    {
+      "nom": "atterrissage",
+      "type": 34,
+      "sequence": 5,
+      "champs": {},
+      "donnees_hex": "",
+      "hex": "aa5501220500008b8a"
+    },
+    {
+      "nom": "retour_maison",
+      "type": 35,
+      "sequence": 6,
+      "champs": {},
+      "donnees_hex": "",
+      "hex": "aa5501230600006fa5"
+    },
+    {
+      "nom": "arret_urgence",
+      "type": 36,
+      "sequence": 7,
+      "champs": {
+        "cle": 23205
+      },
+      "donnees_hex": "a55a",
+      "hex": "aa550124070002a55a866a"
+    },
+    {
+      "nom": "mission_ack",
+      "type": 69,
+      "sequence": 77,
+      "champs": {
+        "id_mission": 12,
+        "element": 3,
+        "index": 2,
+        "statut": 0
+      },
+      "donnees_hex": "0c0003020000",
+      "hex": "aa5501454d00060c0003020000bce2"
+    },
+    {
+      "nom": "mission_verification",
+      "type": 70,
+      "sequence": 78,
+      "champs": {
+        "id_mission": 12,
+        "element": 3,
+        "index": 2
+      },
+      "donnees_hex": "0c00030200",
+      "hex": "aa5501464e00050c00030200f414"
+    },
+    {
+      "nom": "texte_utf8",
+      "type": 4,
+      "sequence": 2,
+      "champs": {
+        "gravite": 1,
+        "source": 0,
+        "texte": "Mission validée, prête à voler"
+      },
+      "donnees_hex": "01004d697373696f6e2076616c6964c3a9652c207072c3aa746520c3a020766f6c6572",
+      "hex": "aa55010402002301004d697373696f6e2076616c6964c3a9652c207072c3aa746520c3a020766f6c65723fa5"
+    },
+    {
+      "nom": "distances_tourelle",
+      "type": 18,
+      "sequence": 45,
+      "champs": {
+        "angle_debut_cdeg": -4500,
+        "pas_cdeg": 4500,
+        "distances_cm": [
+          120,
+          65535,
+          340
+        ]
+      },
+      "donnees_hex": "036cee94117800ffff5401",
+      "hex": "aa5501122d000b036cee94117800ffff54015f91"
+    },
+    {
+      "nom": "mission_debut",
+      "type": 64,
+      "sequence": 7,
+      "champs": {
+        "id_mission": 12,
+        "nb_waypoints": 4,
+        "nb_sommets_limites": 4,
+        "nb_zones": 1,
+        "distance_photos_cm": 180,
+        "vitesse_cms": 250,
+        "options": 1,
+        "hauteur_max_m": 30
+      },
+      "donnees_hex": "0c0004000401b400fa00011e",
+      "hex": "aa55014007000c0c0004000401b400fa00011e26eb"
+    },
+    {
+      "nom": "mission_limites",
+      "type": 65,
+      "sequence": 8,
+      "champs": {
+        "id_mission": 12,
+        "sommets": [
+          [
+            488560000,
+            23510000
+          ],
+          [
+            488560000,
+            23530000
+          ],
+          [
+            488575000,
+            23530000
+          ],
+          [
+            488575000,
+            23510000
+          ]
+        ]
+      },
+      "donnees_hex": "0c000480d51e1df0bb660180d51e1d100a670118101f1d100a670118101f1df0bb6601",
+      "hex": "aa5501410800230c000480d51e1df0bb660180d51e1d100a670118101f1d100a670118101f1df0bb660138fd"
+    },
+    {
+      "nom": "zone_interdite",
+      "type": 66,
+      "sequence": 9,
+      "champs": {
+        "id_mission": 12,
+        "index_zone": 0,
+        "sommets": [
+          [
+            488565000,
+            23518000
+          ],
+          [
+            488567000,
+            23518000
+          ],
+          [
+            488566000,
+            23521000
+          ]
+        ]
+      },
+      "donnees_hex": "0c00000308e91e1d30db6601d8f01e1d30db6601f0ec1e1de8e66601",
+      "hex": "aa55014209001c0c00000308e91e1d30db6601d8f01e1d30db6601f0ec1e1de8e66601a398"
+    },
+    {
+      "nom": "mission_waypoint_0",
+      "type": 67,
+      "sequence": 10,
+      "champs": {
+        "id_mission": 12,
+        "index": 0,
+        "latitude_e7": 488561000,
+        "longitude_e7": 23512000,
+        "altitude_relative_cm": 500,
+        "vitesse_cms": 250,
+        "action": 1
+      },
+      "donnees_hex": "0c00000068d91e1dc0c36601f4010000fa0001",
+      "hex": "aa5501430a00130c00000068d91e1dc0c36601f4010000fa0001ec44"
+    },
+    {
+      "nom": "mission_waypoint_1",
+      "type": 67,
+      "sequence": 11,
+      "champs": {
+        "id_mission": 12,
+        "index": 1,
+        "latitude_e7": 488561000,
+        "longitude_e7": 23528000,
+        "altitude_relative_cm": 500,
+        "vitesse_cms": 250,
+        "action": 2
+      },
+      "donnees_hex": "0c00010068d91e1d40026701f4010000fa0002",
+      "hex": "aa5501430b00130c00010068d91e1d40026701f4010000fa00025792"
+    },
+    {
+      "nom": "mission_waypoint_2",
+      "type": 67,
+      "sequence": 12,
+      "champs": {
+        "id_mission": 12,
+        "index": 2,
+        "latitude_e7": 488563000,
+        "longitude_e7": 23528000,
+        "altitude_relative_cm": 500,
+        "vitesse_cms": 250,
+        "action": 1
+      },
+      "donnees_hex": "0c00020038e11e1d40026701f4010000fa0001",
+      "hex": "aa5501430c00130c00020038e11e1d40026701f4010000fa0001eb56"
+    },
+    {
+      "nom": "mission_waypoint_3",
+      "type": 67,
+      "sequence": 13,
+      "champs": {
+        "id_mission": 12,
+        "index": 3,
+        "latitude_e7": 488563000,
+        "longitude_e7": 23512000,
+        "altitude_relative_cm": 500,
+        "vitesse_cms": 250,
+        "action": 2
+      },
+      "donnees_hex": "0c00030038e11e1dc0c36601f4010000fa0002",
+      "hex": "aa5501430d00130c00030038e11e1dc0c36601f4010000fa00025080"
+    },
+    {
+      "nom": "mission_fin",
+      "type": 68,
+      "sequence": 14,
+      "champs": {
+        "id_mission": 12,
+        "crc_mission": 21123
+      },
+      "donnees_hex": "0c008352",
+      "hex": "aa5501440e00040c0083522cca"
+    }
+  ],
+  "mission": {
+    "debut_hex": "0c0004000401b400fa00011e",
+    "limites_hex": "0c000480d51e1df0bb660180d51e1d100a670118101f1d100a670118101f1df0bb6601",
+    "zones_hex": [
+      "0c00000308e91e1d30db6601d8f01e1d30db6601f0ec1e1de8e66601"
+    ],
+    "waypoints_hex": [
+      "0c00000068d91e1dc0c36601f4010000fa0001",
+      "0c00010068d91e1d40026701f4010000fa0002",
+      "0c00020038e11e1d40026701f4010000fa0001",
+      "0c00030038e11e1dc0c36601f4010000fa0002"
+    ],
+    "crc": 21123
+  },
+  "flux": {
+    "hex": "0013aa01aa550101010006050340e201002a17aa5501102a002f06120f002ebb37029f8c54ed1e1d98eb6601de0d0000b00400005e01e7ff2823603be2044c04030e55004f03001b00136caaaa5501022c01032411002c73",
+    "trames_attendues": [
+      "aa550101010006050340e201002a17",
+      "aa5501022c01032411002c73"
+    ],
+    "erreurs_crc": 1
+  }
+}

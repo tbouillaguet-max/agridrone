@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ml_dashboard/classes.schema.json",
+  "title": "classes.json — classes du run (schema_version 1)",
+  "type": "object",
+  "required": ["schema_version", "label_mode", "classes", "positive_class"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 1},
+    "label_mode": {"enum": ["single", "multi"],
+                   "description": "single : une classe par image ; multi : 0..n classes par image."},
+    "classes": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "description": "Liste ORDONNÉE : l'indice d'une classe = sa sortie dans le modèle.",
+      "items": {"type": "string", "pattern": "^[^\\s,|\\n\\r](?:[^,|\\n\\r]*[^\\s,|\\n\\r])?$"}
+    },
+    "positive_class": {"type": ["string", "null"],
+                       "description": "Classe positive si binaire mono-label (2 classes), sinon null."}
+  }
+}
