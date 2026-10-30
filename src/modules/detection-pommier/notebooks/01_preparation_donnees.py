@@ -53,7 +53,7 @@ RAW = Path("/kaggle/temp/raw") if (ON_KAGGLE and Path("/kaggle/temp").exists()) 
 INPUT_ROOT = Path("/kaggle/input")
 
 # Dossiers déjà présents (prioritaires sur le téléchargement). Exemple en local :
-# LOCAL_DIRS = dict(appleleaf9=r"src\modules\detection-pommier\raw\appleleaf9", ...)
+# LOCAL_DIRS = dict(appleleaf9=r"data\datasets\pommier\raw\appleleaf9", ...)
 LOCAL_DIRS = dict(appleleaf9=None, fgvc8=None, plantdoc=None, gymnsa=None)
 
 SOURCES = {

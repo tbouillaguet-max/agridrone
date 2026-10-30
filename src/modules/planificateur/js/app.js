@@ -501,7 +501,7 @@ async function archiver(m) {
     }
   } else {
     $("etat-archive").textContent = `Archivage impossible : ${r.erreur}`;
-    journal(`archivage impossible : ${r.erreur}. Enregistrez la mission à la main dans drone\\missions ` +
+    journal(`archivage impossible : ${r.erreur}. Enregistrez la mission à la main dans data\\missions ` +
       `sous le nom mission_${m.idMission}.json`, "erreur");
   }
 }

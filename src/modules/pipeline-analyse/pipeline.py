@@ -5,12 +5,12 @@ Usage :
     python pipeline.py DOSSIER_DU_VOL [options]
 
     DOSSIER_DU_VOL   dossier déposé après le vol : images\\, photos.csv, boite_noire.csv
-                     (en général drone\\vols\\entrant\\mission_00012_01)
+                     (en général data\\vols\\entrant\\mission_00012_01)
 
 Options :
-    --missions DIR      missions archivées par le planificateur   (défaut : drone\\missions)
+    --missions DIR      missions archivées par le planificateur   (défaut : data\\missions)
     --modeles FICHIER   registre des modèles                       (défaut : pipeline\\modeles.json)
-    --sortie DIR        dossier des résultats                      (défaut : drone\\vols)
+    --sortie DIR        dossier des résultats                      (défaut : data\\vols)
     --mission FICHIER   impose le fichier de mission (si plusieurs candidats)
     --nb-top N          nombre d'images malades les plus sûres dans le rapport (défaut 10)
     --nb-incertaines N  nombre d'images les moins sûres à vérifier       (défaut 10)

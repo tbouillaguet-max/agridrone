@@ -1,6 +1,6 @@
 """Étape 1b — choix et contrôle de la mission archivée par le planificateur.
 
-Le planificateur archive chaque mission dans ``drone\\missions\\mission_<id>.json``.
+Le planificateur archive chaque mission dans ``data\\missions\\mission_<id>.json``.
 Si l'identifiant existe déjà avec un autre contenu, il écrit ``mission_<id>_2.json``,
 ``_3``… Le pipeline choisit alors le bon fichier ainsi :
 
