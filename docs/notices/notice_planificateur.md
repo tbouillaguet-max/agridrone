@@ -1,7 +1,7 @@
 # Notice — Planificateur de mission (v2, architecture AU1/AU2)
 
 Module : `src\modules\planificateur\`
-Dépôt : `tbouillaguet-max/Application-android-drone`, branche `claude/zen-newton-1sz0ql` (commit 69f4471).
+Origine : ancien dépôt `Application-android-drone` (commit 69f4471), intégré à ce monorepo.
 Position dans le workflow : **premier module**. En aval : AU2 (mission par câble USB) et pipeline d'analyse (`mission_<id>.json`).
 
 ```

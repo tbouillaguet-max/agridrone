@@ -85,11 +85,10 @@ reproduire une expérience. Statut, licence et attribution de chaque jeu :
      (« Enable Win32 long paths »), ou cloner dans un dossier court comme `C:\agridrone` ;
    - **macOS** : `brew install unar` ;
    - **Linux** : `sudo apt install unar`.
-2. **Récupérer le projet** (dépôt privé : se connecter à GitHub) :
+2. **Récupérer le projet** :
    ```bash
-   git clone https://github.com/tbouillaguet-max/Drone.git agridrone
-   cd agridrone
-   git checkout claude/gifted-heisenberg-uedia8
+   git clone https://github.com/tbouillaguet-max/agridrone.git
+   cd agridrone/src/modules/ml-agridrone   # le projet ML est un module du monorepo
    uv sync          # installe aussi PyTorch (quelques Go)
    ```
 3. **Télécharger** :
