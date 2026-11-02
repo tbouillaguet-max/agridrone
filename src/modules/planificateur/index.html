@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planificateur AgriDrone</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%231b7f3b'/%3E%3Cpath d='M7 16h18M16 7v18' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="lib/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/planificateur.css">
+  <script src="lib/leaflet/leaflet.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Planificateur de mission</h1>
+    <input id="nom-mission" type="text" aria-label="Nom de la mission" placeholder="Nom de la mission">
+    <div class="groupe">
+      <button id="btn-nouveau">Nouvelle</button>
+      <button id="btn-ouvrir">Ouvrir…</button>
+      <button id="btn-enregistrer">Enregistrer…</button>
+      <input id="fichier" type="file" accept=".json,application/json" hidden>
+    </div>
+    <span id="etat-au2" class="pastille">AU2 : non connecté</span>
+  </header>
+
+  <main>
+    <div id="zone-carte">
+      <div id="carte"></div>
+      <div class="boutons-carte">
+        <button id="btn-centrer" title="Centrer sur le terrain">⌖ Terrain</button>
+        <button id="btn-me-localiser" title="Centrer sur ma position">◎ Ma position</button>
+      </div>
+      <div id="message" class="message" hidden></div>
+    </div>
+
+    <aside id="panneau">
+      <section>
+        <h2><span class="numero">1</span> Terrain</h2>
+        <label class="large">Culture de la parcelle (obligatoire)
+          <select id="p-culture">
+            <option value="">— choisir la culture —</option>
+          </select>
+        </label>
+        <div class="groupe">
+          <button data-outil="limites">Tracer les limites</button>
+          <button data-outil="zone">Ajouter une zone interdite</button>
+          <button data-outil="depart">Placer le décollage</button>
+        </div>
+        <div class="groupe">
+          <button id="btn-terminer" class="principal">Terminer le tracé</button>
+          <button id="btn-annuler-point">Annuler le dernier point</button>
+        </div>
+        <p id="aide-outil" class="aide"></p>
+        <p id="info-terrain" class="info"></p>
+        <ul id="liste-zones" class="liste"></ul>
+      </section>
+
+      <section>
+        <h2><span class="numero">2</span> Chemin</h2>
+        <div class="groupe radios">
+          <label><input type="radio" name="mode" value="auto"> Quadrillage automatique</label>
+          <label><input type="radio" name="mode" value="manuel"> Waypoints manuels</label>
+        </div>
+
+        <div id="parametres-auto" class="grille">
+          <label>Altitude (m) <input id="p-altitude" type="number" min="1" max="120" step="0.5"></label>
+          <label>Vitesse max (m/s, 0 = auto) <input id="p-vitesse" type="number" min="0" max="15" step="0.1"></label>
+          <label>Recouvrement frontal (%) <input id="p-frontal" type="number" min="0" max="95" step="1"></label>
+          <label>Recouvrement latéral (%) <input id="p-lateral" type="number" min="0" max="95" step="1"></label>
+          <label>Marge aux limites (m) <input id="p-marge-limites" type="number" min="0" max="50" step="0.5"></label>
+          <label>Marge aux zones (m) <input id="p-marge-zones" type="number" min="0" max="50" step="0.5"></label>
+          <label>Cap des passes (°) <input id="p-cap" type="number" min="0" max="179" step="1"></label>
+          <label class="case"><input id="p-cap-auto" type="checkbox"> cap automatique</label>
+          <label class="case large"><input id="p-transversal" type="checkbox"> grand côté de la photo perpendiculaire aux passes</label>
+        </div>
+
+        <div id="parametres-manuel" hidden>
+          <div class="grille">
+            <label>Altitude des nouveaux points (m) <input id="p-altitude-manuelle" type="number" min="1" max="120" step="0.5"></label>
+            <label>Vitesse (m/s) <input id="p-vitesse-manuelle" type="number" min="0.5" max="15" step="0.1"></label>
+            <label class="large">Action des nouveaux points
+              <select id="p-action-manuelle">
+                <option value="3">photo unique</option>
+                <option value="0">passage</option>
+                <option value="1">début des photos</option>
+                <option value="2">fin des photos</option>
+              </select>
+            </label>
+          </div>
+          <button data-outil="waypoints">Ajouter des waypoints sur la carte</button>
+          <table class="waypoints">
+            <thead><tr><th>n°</th><th>Alt. (m)</th><th>Vit. (m/s)</th><th>Action</th><th></th></tr></thead>
+            <tbody id="table-waypoints"></tbody>
+          </table>
+        </div>
+
+        <label class="large">Fin de mission
+          <select id="p-fin">
+            <option value="retour">retour au point de départ</option>
+            <option value="atterrir">atterrir sur place</option>
+            <option value="stationnaire">stationnaire au dernier point</option>
+          </select>
+        </label>
+
+        <details>
+          <summary>Caméra (valeurs provisoires : modèle à choisir)</summary>
+          <div class="grille">
+            <label>Capteur, grand côté (mm) <input id="c-capteurLargeurMm" type="number" step="0.01"></label>
+            <label>Capteur, petit côté (mm) <input id="c-capteurHauteurMm" type="number" step="0.01"></label>
+            <label>Focale (mm) <input id="c-focaleMm" type="number" step="0.01"></label>
+            <label>Image, grand côté (px) <input id="c-imageLargeurPx" type="number" step="1"></label>
+            <label>Image, petit côté (px) <input id="c-imageHauteurPx" type="number" step="1"></label>
+            <label>Intervalle min. (s) <input id="c-intervalleMinS" type="number" step="0.05"></label>
+            <label>Exposition min. (µs) <input id="c-expositionMinUs" type="number" step="10"></label>
+          </div>
+        </details>
+      </section>
+
+      <section>
+        <h2><span class="numero">3</span> Calculs</h2>
+        <dl id="calculs" class="calculs"></dl>
+      </section>
+
+      <section>
+        <h2><span class="numero">4</span> Vérifications</h2>
+        <ul id="verifications" class="verifications"></ul>
+      </section>
+
+      <section>
+        <h2><span class="numero">5</span> Envoi au drone (AU2)</h2>
+        <div class="groupe">
+          <button id="btn-connecter">Connecter AU2 (câble USB)</button>
+          <button id="btn-simulation" title="Essayer sans carte">AU2 simulé</button>
+        </div>
+        <p id="info-au2" class="info"></p>
+        <p id="etat-drone" class="info"></p>
+        <label class="case large"><input id="confirmation" type="checkbox"> J'ai vérifié la carte, la culture,
+          les calculs et les vérifications : cette mission peut être chargée dans le drone.</label>
+        <button id="btn-envoyer" class="principal large" disabled>Envoyer la mission</button>
+        <progress id="progression" max="100" value="0"></progress>
+        <p id="etat-mission" class="etat-mission"></p>
+        <p id="etat-archive" class="info"></p>
+        <details open>
+          <summary>Journal des échanges</summary>
+          <div id="journal" class="journal" aria-live="polite"></div>
+        </details>
+      </section>
+    </aside>
+  </main>
+</body>
+</html>

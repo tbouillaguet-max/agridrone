@@ -1,26 +1,15 @@
 # data/
 
-Rien ici n'est versionné par git, à l'exception de ce fichier et des `.gitkeep`.
+Rien ici n'est versionné par Git, à l'exception de ce fichier. Racine configurable par la variable d'environnement `DRONE_DATA_DIR`. Tableau complet (qui produit, qui lit, taille) : « Données » dans [`GRAPH.md`](../GRAPH.md).
 
-Un dossier par projet, qui ne partagent aucune source :
+```
+missions/                 missions archivées par le planificateur (mission_<id>.json)
+vols/entrant/<vol>/       vols reçus : images/, photos.csv, boite_noire.csv
+vols/<date>_<id>/         résultats d'analyse du pipeline (rapport.html…)
+runs/<projet>/<run_id>/   runs d'entraînement au standard ml-dashboard
+datasets/pommier/         raw/ (immuable), archives/
+datasets/mais/            raw/, curated/, labels/
+models/                   modèles ONNX exportés (à venir)
+```
 
-* `ble/` : blé d'hiver (sources de `ble/configs/data/sources.yaml`) ;
-* `olivier/` : olivier (sources de `olivier/configs/data/sources.yaml`, données des TP).
-
-Dans chacun :
-
-| Dossier | Contenu | Règle |
-|---|---|---|
-| `raw/<source>/` | archives et fichiers téléchargés tels quels, avec leur somme de contrôle | immuable : on ne modifie jamais un fichier brut |
-| `interim/<source>/` | extractions, conversions de format, tuiles intermédiaires | régénérable depuis `raw/` par les scripts |
-| `processed/<tâche>/` | jeux prêts à l'entraînement (YOLO, dossiers par classe, tuiles N bandes + masques) et fichiers de découpage train/val/test | régénérable depuis `raw/` + configs |
-
-`uv run agridrone data download --project ble` (ou `olivier`) remplit `data/<projet>/raw/`
-et `data/<projet>/interim/` ; sans `--project`, les deux projets sont téléchargés.
-
-Le découpage train/val/test se fait **par source / parcelle / date**, jamais
-aléatoirement par image, pour éviter les fuites entre images quasi identiques
-d'une même prise de vue (chantier 2).
-
-Les clés d'accès éventuelles (Kaggle, Roboflow) ne doivent jamais être
-enregistrées dans le dépôt : variables d'environnement ou fichier `.env` (ignoré).
+Les dossiers vides sont recréés avec `mkdir -p`. Ne jamais déposer de clé (Kaggle, Roboflow) ici.

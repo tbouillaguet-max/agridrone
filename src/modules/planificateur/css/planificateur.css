@@ -1,0 +1,137 @@
+:root {
+  --fond: #f6f7f4;
+  --panneau: #ffffff;
+  --texte: #1d2433;
+  --discret: #5b6475;
+  --bordure: #d9dde3;
+  --vert: #1b7f3b;
+  --vert-clair: #e7f4ea;
+  --rouge: #c62828;
+  --rouge-clair: #fdecea;
+  --orange: #b26a00;
+  --orange-clair: #fff4e0;
+  --bleu: #1565c0;
+  --rayon: 6px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--texte);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--fond); }
+body { display: flex; flex-direction: column; }
+
+header {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 16px; background: var(--vert); color: white;
+}
+header h1 { font-size: 17px; margin: 0 8px 0 0; font-weight: 600; }
+header input#nom-mission { flex: 1 1 200px; max-width: 360px; }
+header button { background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.4); }
+header button:hover { background: rgba(255,255,255,0.28); }
+
+.pastille { padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,0.25); font-size: 13px; }
+.pastille.connecte { background: #0f5a27; }
+.pastille.arme { background: #9a3412; }
+
+main { flex: 1; display: flex; min-height: 0; }
+#zone-carte { flex: 1; position: relative; min-width: 0; }
+#carte { position: absolute; inset: 0; }
+#carte.mode-trace { cursor: crosshair; }
+.boutons-carte { position: absolute; left: 56px; top: 10px; z-index: 1000; display: flex; gap: 6px; }
+.message {
+  position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1000;
+  background: var(--texte); color: white; padding: 10px 16px; border-radius: var(--rayon); max-width: 80%;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+
+#panneau {
+  width: 410px; flex: 0 0 410px; overflow-y: auto; background: var(--panneau);
+  border-left: 1px solid var(--bordure);
+}
+section { padding: 12px 16px; border-bottom: 1px solid var(--bordure); }
+h2 { font-size: 15px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.numero {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--vert); color: white; font-size: 12px;
+}
+
+button, input, select { font: inherit; }
+button {
+  padding: 6px 10px; border: 1px solid var(--bordure); border-radius: var(--rayon);
+  background: #f3f5f7; color: var(--texte); cursor: pointer;
+}
+button:hover:not(:disabled) { background: #e8ecf0; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.actif { background: var(--vert-clair); border-color: var(--vert); color: var(--vert); font-weight: 600; }
+button.principal { background: var(--vert); color: white; border-color: var(--vert); }
+button.principal:hover:not(:disabled) { background: #156a31; }
+button.petit { padding: 1px 6px; font-size: 12px; }
+button.large, label.large { width: 100%; }
+input[type=text], input[type=number], select {
+  padding: 5px 7px; border: 1px solid var(--bordure); border-radius: var(--rayon); background: white; color: var(--texte);
+  width: 100%;
+}
+
+.groupe { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.radios label { display: flex; align-items: center; gap: 4px; margin-right: 10px; }
+.grille { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin: 8px 0; }
+.grille label, label.large { display: flex; flex-direction: column; gap: 3px; color: var(--discret); font-size: 12.5px; }
+.grille label.case { flex-direction: row; align-items: center; gap: 6px; color: var(--texte); }
+.grille label.large { grid-column: 1 / -1; }
+.aide { color: var(--discret); font-size: 12.5px; margin: 4px 0; }
+.info { margin: 4px 0; font-size: 13px; }
+.liste { margin: 6px 0 0; padding-left: 18px; }
+.liste li { margin: 3px 0; }
+details { margin-top: 10px; }
+summary { cursor: pointer; color: var(--discret); }
+
+.calculs { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.calculs dt { color: var(--discret); }
+.calculs dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.calculs dd.erreur { color: var(--rouge); font-weight: 600; }
+
+.verifications { list-style: none; margin: 0; padding: 0; }
+.verifications li { padding: 5px 8px; border-radius: var(--rayon); margin-bottom: 4px; font-size: 13px; }
+.verifications li.ok { background: var(--vert-clair); color: #145c2b; }
+.verifications li.erreur { background: var(--rouge-clair); color: var(--rouge); font-weight: 600; }
+.verifications li.avertissement { background: var(--orange-clair); color: var(--orange); }
+
+table.waypoints { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12.5px; }
+table.waypoints th { text-align: left; color: var(--discret); font-weight: normal; }
+table.waypoints td { padding: 2px 3px; }
+table.waypoints input { width: 70px; padding: 2px 4px; }
+table.waypoints select { padding: 2px; }
+
+progress { width: 100%; height: 14px; margin: 8px 0 4px; accent-color: var(--vert); }
+.etat-mission { min-height: 1.3em; font-weight: 600; margin: 4px 0; }
+.etat-mission.ok { color: var(--vert); }
+.etat-mission.erreur { color: var(--rouge); }
+.journal {
+  height: 180px; overflow-y: auto; background: #10151d; color: #d7dde8; border-radius: var(--rayon);
+  padding: 6px 8px; font: 12px ui-monospace, Consolas, monospace;
+}
+.ligne-journal.ok { color: #7ee2a0; }
+.ligne-journal.avertissement { color: #ffd479; }
+.ligne-journal.erreur { color: #ff8a80; }
+
+/* Marqueurs sur la carte */
+.poignee { background: white; border: 2px solid var(--vert); border-radius: 2px; }
+.poignee.sommet-zone { border-color: var(--rouge); }
+.poignee.milieu { background: rgba(255,255,255,0.6); border-radius: 50%; border-width: 1px; }
+.wp {
+  background: #0d47a1; color: white; border: 2px solid white; border-radius: 50%; display: grid !important;
+  place-items: center; font-size: 10px; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.wp-premier { background: var(--vert); }
+.wp-dernier { background: #6a1b9a; }
+.marque-depart {
+  background: #ffd600; color: #333; border: 2px solid #333; border-radius: 50%; display: grid !important;
+  place-items: center; font-weight: 800; font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  main { flex-direction: column; }
+  #zone-carte { flex: 0 0 55vh; }
+  #panneau { width: 100%; flex: 1 1 auto; border-left: none; }
+}

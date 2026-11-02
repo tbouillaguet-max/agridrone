@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "_aide": "Registre des modèles par culture. Liste des cultures identique au planificateur (config.js, serveur_local.py). Chemins relatifs à ce fichier. Remplacer « a_definir » par le modèle retenu (voir NOTICE.md § Registre).",
+  "cultures": {
+    "ble": {
+      "type": "a_definir",
+      "description": "Blé : modèle en entraînement"
+    },
+    "mais": {
+      "type": "a_definir",
+      "description": "Maïs : modèle en entraînement (comparaison YOLO / tuiles EfficientNet-MobileNet / RT-DETR)"
+    },
+    "pommier": {
+      "type": "a_definir",
+      "description": "Pommier : deux étages (extraction des feuilles puis classification), en entraînement"
+    }
+  }
+}
