@@ -1,4 +1,4 @@
-# drone
+# agridrone
 
 Drone agricole autonome : il survole des cultures, les photographie, détecte les plantes malades ou parasitées et transmet les résultats. Ce dépôt regroupe tout ce qui touche au drone : planification de mission, protocole et électronique, analyse des images, entraînement des modèles, formation.
 
